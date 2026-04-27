@@ -68,10 +68,11 @@ app.post('/chat', async (req, res) => {
   const reply = response.content[0].text;
 
   const now = new Date().toISOString();
-  await supabase.from('messages').insert([
+  const { error: insertError } = await supabase.from('messages').insert([
     { session_id, role: 'user', content: message, created_at: now },
     { session_id, role: 'assistant', content: reply, created_at: new Date(Date.now() + 1).toISOString() }
   ]);
+  if (insertError) console.error('Supabase insert error:', insertError);
 
   res.json({ reply });
 });
