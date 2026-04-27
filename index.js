@@ -48,8 +48,6 @@ const SYSTEM_PROMPT = `You are Nova, a witty and confident voice assistant. Your
 app.post('/chat', async (req, res) => {
   const { message, session_id } = req.body;
 
-  await supabase.from('messages').insert({ session_id, role: 'user', content: message });
-
   const { data: historyData } = await supabase
     .from('messages')
     .select('role, content')
@@ -58,17 +56,21 @@ app.post('/chat', async (req, res) => {
     .limit(10);
 
   const history = historyData || [];
+  const messages = [...history.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: message }];
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 1024,
     system: SYSTEM_PROMPT,
-    messages: history.map(m => ({ role: m.role, content: m.content }))
+    messages
   });
 
   const reply = response.content[0].text;
 
-  await supabase.from('messages').insert({ session_id, role: 'assistant', content: reply });
+  await supabase.from('messages').insert([
+    { session_id, role: 'user', content: message },
+    { session_id, role: 'assistant', content: reply }
+  ]);
 
   res.json({ reply });
 });
