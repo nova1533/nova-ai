@@ -22,6 +22,7 @@ app.post('/chat', async (req, res) => {
   res.json({ reply: response.content[0].text });
 });
 
-app.listen(process.env.PORT || 3000, () => {
-  console.log('Nova is running');
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Nova is running on port ${PORT}`);
 });
