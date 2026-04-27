@@ -50,12 +50,14 @@ app.post('/chat', async (req, res) => {
 
   await supabase.from('messages').insert({ session_id, role: 'user', content: message });
 
-  const { data: history } = await supabase
+  const { data: historyData } = await supabase
     .from('messages')
     .select('role, content')
     .eq('session_id', session_id)
     .order('created_at', { ascending: true })
     .limit(10);
+
+  const history = historyData || [];
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
