@@ -67,9 +67,10 @@ app.post('/chat', async (req, res) => {
 
   const reply = response.content[0].text;
 
+  const now = new Date().toISOString();
   await supabase.from('messages').insert([
-    { session_id, role: 'user', content: message },
-    { session_id, role: 'assistant', content: reply }
+    { session_id, role: 'user', content: message, created_at: now },
+    { session_id, role: 'assistant', content: reply, created_at: new Date(Date.now() + 1).toISOString() }
   ]);
 
   res.json({ reply });
