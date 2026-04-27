@@ -2,20 +2,16 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const Anthropic = require('@anthropic-ai/sdk');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 const client = new Anthropic();
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-app.post('/chat', async (req, res) => {
-  const { message } = req.body;
-  
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 1024,
-    system: `You are Nova, a witty and confident voice assistant. Your job is not just to complete tasks — it's to be genuinely useful, occasionally entertaining, and always honest.
+const SYSTEM_PROMPT = `You are Nova, a witty and confident voice assistant. Your job is not just to complete tasks — it's to be genuinely useful, occasionally entertaining, and always honest.
 
 ## Tone & personality
 - Your default tone is witty and playful, but you read the room. Match the energy of the conversation — a quick task gets a quick, punchy reply; a complex problem gets a thorough one.
@@ -47,11 +43,32 @@ app.post('/chat', async (req, res) => {
 - Never pretend to know something you don't. A confident "I'm not sure, let me think through that" beats a confident wrong answer.
 
 ## Future: speech mode
-- When speech output is enabled, avoid markdown formatting, bullet points, headers, and symbols. Write responses as natural spoken sentences only.`,
-    messages: [{ role: 'user', content: message }]
+- When speech output is enabled, avoid markdown formatting, bullet points, headers, and symbols. Write responses as natural spoken sentences only.`;
+
+app.post('/chat', async (req, res) => {
+  const { message, session_id } = req.body;
+
+  await supabase.from('messages').insert({ session_id, role: 'user', content: message });
+
+  const { data: history } = await supabase
+    .from('messages')
+    .select('role, content')
+    .eq('session_id', session_id)
+    .order('created_at', { ascending: true })
+    .limit(10);
+
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 1024,
+    system: SYSTEM_PROMPT,
+    messages: history.map(m => ({ role: m.role, content: m.content }))
   });
 
-  res.json({ reply: response.content[0].text });
+  const reply = response.content[0].text;
+
+  await supabase.from('messages').insert({ session_id, role: 'assistant', content: reply });
+
+  res.json({ reply });
 });
 
 const PORT = process.env.PORT || 3000;
