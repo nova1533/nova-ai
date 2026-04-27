@@ -1,8 +1,10 @@
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 const Anthropic = require('@anthropic-ai/sdk');
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 const client = new Anthropic();
@@ -20,6 +22,6 @@ app.post('/chat', async (req, res) => {
   res.json({ reply: response.content[0].text });
 });
 
-app.listen(3000, () => {
-  console.log('Nova is running on port 3000');
+app.listen(process.env.PORT || 3000, () => {
+  console.log('Nova is running');
 });
