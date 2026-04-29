@@ -1,76 +1,844 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nova - Real Estate AI Assistant</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, sans-serif; background: #0f1117; color: #fff; height: 100vh; display: flex; flex-direction: column; }
-    #header { padding: 20px; text-align: center; border-bottom: 1px solid #2a2a3e; }
-    #header h1 { font-size: 24px; color: #7c6af7; }
-    #header p { font-size: 14px; color: #888; margin-top: 4px; }
-    #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
-    .message { max-width: 75%; padding: 12px 16px; border-radius: 12px; line-height: 1.5; font-size: 15px; }
-    .user { background: #7c6af7; align-self: flex-end; }
-    .nova { background: #1e1e2e; align-self: flex-start; border: 1px solid #2a2a3e; white-space: pre-wrap; }
-    #input-area { padding: 20px; border-top: 1px solid #2a2a3e; display: flex; gap: 12px; }
-    #input { flex: 1; background: #1e1e2e; border: 1px solid #2a2a3e; color: #fff; padding: 12px 16px; border-radius: 8px; font-size: 15px; outline: none; }
-    #input:focus { border-color: #7c6af7; }
-    #send { background: #7c6af7; color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-size: 15px; cursor: pointer; }
-    #send:hover { background: #6a59e0; }
-    #send:disabled { background: #444; cursor: not-allowed; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nova — Voice Assistant</title>
+<link rel="manifest" href="/manifest.json" />
+<link rel="apple-touch-icon" href="/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="theme-color" content="#000000" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #000000;
+    --card: #060A14;
+    --card-hover: #0A1220;
+    --border: #122036;
+    --border-strong: #1B2E4D;
+    --blue: #378ADD;
+    --blue-soft: #2A6FB8;
+    --blue-bright: #5BA8F0;
+    --yellow: #EF9F27;
+    --text: #FFFFFF;
+    --text-muted: #6B7E9C;
+    --text-dim: #3F506B;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  #root { height: 100vh; }
+  ::selection { background: var(--blue); color: #000; }
+
+  .app {
+    display: grid;
+    grid-template-columns: 240px 1fr 320px;
+    height: 100vh;
+  }
+
+  /* ───── Mobile layout ───── */
+  @media (max-width: 768px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+    .sidebar { display: none; }
+    .right { display: none; }
+    .main { padding: 16px 20px 24px; overflow-y: auto; }
+    .orb-wrap { width: 280px; height: 280px; }
+    .now-strip { font-size: 11px; gap: 10px; padding: 8px 14px; }
+    .input-bar { max-width: 100%; }
+    .transcript { max-width: 100%; }
+  }
+
+  /* ───── Sidebar ───── */
+  .sidebar {
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 20px 16px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 24px; }
+  .brand-mark {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--blue);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 1px rgba(55, 138, 221, 0.3), 0 0 16px rgba(55, 138, 221, 0.4);
+  }
+  .brand-mark::after {
+    content: ''; width: 8px; height: 8px; border-radius: 50%; background: #0A1220;
+  }
+  .brand-name { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+
+  .nav-section { padding: 8px 0; }
+  .nav-label {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.12em;
+    color: var(--text-dim); padding: 12px 12px 8px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 8px;
+    color: var(--text-muted); cursor: pointer;
+    font-size: 13.5px; font-weight: 500;
+    transition: all 0.15s ease; user-select: none;
+  }
+  .nav-item:hover { background: rgba(55, 138, 221, 0.06); color: #A8B8D0; }
+  .nav-item.active {
+    background: rgba(55, 138, 221, 0.10);
+    color: var(--text);
+    box-shadow: inset 0 0 0 1px rgba(55, 138, 221, 0.25);
+  }
+  .nav-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.5; }
+  .nav-item.active .nav-dot { background: var(--blue); opacity: 1; box-shadow: 0 0 8px var(--blue); }
+
+  /* ───── Center column ───── */
+  .main {
+    overflow-y: auto;
+    padding: 32px 56px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+  .main::-webkit-scrollbar { width: 6px; }
+  .main::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+  /* Now strip */
+  .now-strip {
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    gap: 18px;
+    margin-bottom: 8px;
+    padding: 10px 18px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+  }
+  .now-time { font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: 0.01em; }
+  .now-sep { width: 1px; height: 14px; background: var(--border-strong); flex-shrink: 0; }
+  .now-meta { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0; }
+  .now-meta strong { color: var(--blue-bright); font-weight: 500; }
+  .now-meta .yel { color: var(--yellow); font-weight: 600; }
+  .now-icon { display: flex; align-items: center; color: var(--yellow); }
+
+  /* ───── Orb ───── */
+  .orb-wrap {
+    width: 420px; height: 420px;
+    margin: 12px 0 4px;
+    position: relative;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .orb-svg { width: 100%; height: 100%; overflow: visible; }
+
+  .dust-shell { fill: none; stroke: #2A6FB8; stroke-width: 0.4; opacity: 0.25; }
+  .dust-particle {
+    fill: #5BA8F0;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: dustRadial 5s ease-in-out infinite;
+  }
+  .dust-particle.bright { fill: #7FBFFF; }
+  .dust-particle.star { fill: #EF9F27; }
+  .dust-particle.star.bright { fill: #FFC76A; }
+  .dust-shell-anim { animation: dustShell 5s ease-in-out infinite; transform-origin: center; }
+  .orb-dust.listening .dust-particle { animation-duration: 1.6s; }
+  .orb-dust.listening .dust-shell-anim { animation-duration: 1.6s; }
+  .orb-dust.thinking  .dust-particle { animation-duration: 2.4s; }
+  .orb-dust.thinking  .dust-shell-anim { animation-duration: 2.4s; }
+
+  .orb-dust.speaking .dust-particle {
+    animation: none;
+    transform: translate(
+      calc(var(--tx) * var(--amp, 14px) * var(--voice-amp, 0)),
+      calc(var(--ty) * var(--amp, 14px) * var(--voice-amp, 0))
+    );
+    transition: transform 60ms linear;
+  }
+  .orb-dust.speaking .dust-shell-anim {
+    animation: none;
+    transform: scale(calc(0.95 + 0.18 * var(--voice-amp, 0)));
+    opacity: calc(0.18 + 0.18 * var(--voice-amp, 0));
+    transition: transform 60ms linear, opacity 60ms linear;
+  }
+  @keyframes dustRadial {
+    0%, 100% { transform: translate(calc(var(--tx) * -6px), calc(var(--ty) * -6px)); }
+    50%      { transform: translate(calc(var(--tx) * var(--amp, 14px)), calc(var(--ty) * var(--amp, 14px))); }
+  }
+  @keyframes dustShell {
+    0%, 100% { transform: scale(0.95); opacity: 0.18; }
+    50%      { transform: scale(1.10); opacity: 0.32; }
+  }
+
+  /* Orb listening ring pulse */
+  .orb-wrap.listening::after {
+    content: '';
+    position: absolute;
+    inset: -12px;
+    border-radius: 50%;
+    border: 2px solid var(--blue);
+    opacity: 0.4;
+    animation: listenPulse 1.2s ease-out infinite;
+  }
+  @keyframes listenPulse {
+    0% { transform: scale(0.95); opacity: 0.5; }
+    100% { transform: scale(1.08); opacity: 0; }
+  }
+
+  /* Hint */
+  .hint {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin-bottom: 20px;
+    text-align: center;
+    min-height: 22px;
+  }
+  .hint .kbd {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(55, 138, 221, 0.1);
+    border: 1px solid var(--border-strong);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #A8B8D0;
+    margin: 0 2px;
+  }
+
+  /* Input bar */
+  .input-bar {
+    width: 100%; max-width: 560px;
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 6px 6px 4px;
+    transition: border-color 0.2s;
+  }
+  .input-bar:focus-within {
+    border-color: var(--blue-soft);
+    box-shadow: 0 0 0 4px rgba(55, 138, 221, 0.08);
+  }
+  .input-bar input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-size: 14px;
+    padding: 10px 18px; font-family: inherit;
+  }
+  .input-bar input::placeholder { color: var(--text-muted); }
+  .send-btn {
+    width: 40px; height: 40px; border-radius: 50%; border: none;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s ease;
+    background: rgba(55, 138, 221, 0.15);
+    border: 1px solid var(--border-strong);
+    color: var(--blue);
+  }
+  .send-btn:hover:not(:disabled) { background: var(--blue); color: #fff; }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Transcript */
+  .transcript {
+    margin-top: 28px; width: 100%; max-width: 560px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px 20px;
+    position: relative;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  .transcript::-webkit-scrollbar { width: 4px; }
+  .transcript::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+  .transcript-msg {
+    display: grid; grid-template-columns: 44px 1fr;
+    gap: 14px; padding: 8px 0;
+    align-items: start;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .transcript-msg + .transcript-msg { border-top: 1px solid rgba(55, 138, 221, 0.06); }
+  .msg-who {
+    font-size: 11.5px; font-weight: 600;
+    letter-spacing: 0.04em; text-transform: uppercase; padding-top: 2px;
+  }
+  .msg-who.you { color: var(--text-muted); }
+  .msg-who.nova { color: var(--blue); }
+  .msg-text { font-size: 13.5px; line-height: 1.55; color: var(--text); }
+  .msg-text.you { color: #C8D4E8; }
+
+  .typing { display: inline-flex; gap: 3px; align-items: center; padding: 6px 0; }
+  .typing span {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--blue); animation: typingDot 1.2s ease-in-out infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.15s; }
+  .typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes typingDot {
+    0%, 60%, 100% { transform: scale(0.7); opacity: 0.4; }
+    30% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ───── Right panel ───── */
+  .right {
+    background: var(--bg);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 24px 20px;
+    display: flex; flex-direction: column;
+    gap: 20px;
+  }
+  .right::-webkit-scrollbar { width: 6px; }
+  .right::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+  .panel-label {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.12em;
+    color: var(--text-dim); padding: 0 4px 10px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .panel-label .panel-meta { color: var(--text-muted); font-weight: 500; letter-spacing: 0.04em; text-transform: none; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 6px 4px;
+  }
+
+  /* Tasks */
+  .task {
+    display: grid; grid-template-columns: 24px 1fr auto;
+    align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 8px;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .task:hover { background: rgba(55, 138, 221, 0.05); }
+  .task + .task { border-top: 1px solid rgba(55, 138, 221, 0.06); }
+  .check {
+    width: 18px; height: 18px; border-radius: 5px;
+    border: 1.5px solid var(--border-strong);
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; flex-shrink: 0;
+  }
+  .task:hover .check { border-color: var(--blue-soft); }
+  .task.done .check { background: var(--blue); border-color: var(--blue); }
+  .check svg { opacity: 0; transition: opacity 0.15s; }
+  .task.done .check svg { opacity: 1; }
+  .task-name { font-size: 13.5px; color: var(--text); font-weight: 500; transition: color 0.2s; }
+  .task.done .task-name { color: var(--blue); text-decoration: line-through; text-decoration-thickness: 1px; opacity: 0.85; }
+  .task-time { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .task-time.urgent { color: var(--yellow); }
+  .task-time.normal { color: var(--blue); }
+  .task.done .task-time { color: var(--text-dim); text-decoration: line-through; }
+
+  /* Schedule */
+  .sched-card { padding: 14px 14px 10px; }
+  .sched-day { display: flex; align-items: baseline; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid rgba(55, 138, 221, 0.08); margin-bottom: 8px; }
+  .sched-day-name { font-size: 13.5px; font-weight: 600; color: var(--text); }
+  .sched-day-date { font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .sched-list { position: relative; padding: 4px 0 4px 8px; }
+  .sched-rail {
+    position: absolute; left: 14px; top: 6px; bottom: 6px; width: 1px;
+    background: linear-gradient(to bottom, transparent 0%, var(--border-strong) 12%, var(--border-strong) 88%, transparent 100%);
+  }
+  .sched-item { display: grid; grid-template-columns: 60px 14px 1fr; gap: 10px; align-items: start; padding: 9px 0; position: relative; }
+  .sched-time { font-size: 11.5px; font-variant-numeric: tabular-nums; color: var(--text-muted); padding-top: 2px; text-align: right; }
+  .sched-item.now .sched-time { color: var(--yellow); font-weight: 600; }
+  .sched-dot-wrap { display: flex; align-items: center; justify-content: center; padding-top: 4px; position: relative; z-index: 1; }
+  .sched-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bg); border: 1.5px solid var(--blue-soft); transition: all 0.2s; }
+  .sched-item.now .sched-dot { background: var(--yellow); border-color: var(--yellow); box-shadow: 0 0 0 3px rgba(239, 159, 39, 0.18), 0 0 12px rgba(239, 159, 39, 0.4); }
+  .sched-item.done .sched-dot { background: var(--blue); border-color: var(--blue); opacity: 0.6; }
+  .sched-body { min-width: 0; }
+  .sched-title { font-size: 13px; color: var(--text); font-weight: 500; line-height: 1.35; }
+  .sched-item.done .sched-title { color: var(--text-muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+  .sched-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+  .sched-tag { display: inline-block; margin-top: 6px; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+  .sched-tag.focus { background: rgba(55, 138, 221, 0.15); color: var(--blue-bright); }
+  .sched-tag.live  { background: rgba(239, 159, 39, 0.15); color: var(--yellow); }
+
+  /* Memory */
+  .memory { display: grid; grid-template-columns: 16px 1fr; gap: 10px; padding: 10px 12px; align-items: start; }
+  .memory + .memory { border-top: 1px solid rgba(55, 138, 221, 0.06); }
+  .memory-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--yellow); margin-top: 6px; box-shadow: 0 0 8px rgba(239, 159, 39, 0.5); }
+  .memory-text { font-size: 13px; line-height: 1.5; color: #C8D4E8; }
+
+  /* Status indicator */
+  .status {
+    position: fixed; top: 20px; right: 340px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 999px; font-size: 11.5px; color: var(--text-muted); z-index: 5;
+  }
+  @media (max-width: 768px) { .status { right: 16px; } }
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--blue); box-shadow: 0 0 8px var(--blue);
+    animation: blink 2s ease-in-out infinite;
+  }
+  .status-dot.recording { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); animation: blink 0.6s ease-in-out infinite; }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+</style>
 </head>
 <body>
-  <div id="header">
-    <h1>Nova</h1>
-    <p>Your Real Estate Wholesaling Assistant</p>
-  </div>
-  <div id="messages"></div>
-  <div id="input-area">
-    <input id="input" type="text" placeholder="Ask Nova anything..." />
-    <button id="send">Send</button>
-  </div>
-  <script>
-    const API_URL = 'https://nova-ai-production-acec.up.railway.app/chat';
-    const SESSION_ID = 'session_' + Date.now();
-    const messages = document.getElementById('messages');
-    const input = document.getElementById('input');
-    const send = document.getElementById('send');
+<div id="root"></div>
 
-    function addMessage(text, sender) {
-      const div = document.createElement('div');
-      div.className = 'message ' + sender;
-      div.textContent = text;
-      messages.appendChild(div);
-      messages.scrollTop = messages.scrollHeight;
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const API_BASE = 'https://nova-ai-production-acec.up.railway.app';
+const SESSION_ID = 'session_' + Date.now();
+const IS_MOBILE = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+/* ───── Orb: Stardust particle sphere ───── */
+function OrbDust() {
+  const particles = React.useMemo(() => {
+    const arr = [];
+    let seed = 7;
+    const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    const R = 130;
+    let count = 0, attempts = 0;
+    while (count < 1400 && attempts < 5000) {
+      attempts++;
+      const x = (rand() * 2 - 1) * R;
+      const y = (rand() * 2 - 1) * R;
+      const d = Math.sqrt(x * x + y * y);
+      if (d > R) continue;
+      const edgeBias = d / R;
+      if (edgeBias < 0.55 && rand() > edgeBias * 0.9) continue;
+      const bright = rand() > 0.85;
+      const star = rand() < 0.08;
+      const r = star ? 1.0 + rand() * 0.7 : bright ? 0.9 + rand() * 0.6 : 0.4 + rand() * 0.5;
+      const tx = d > 0.01 ? x / d : (rand() * 2 - 1);
+      const ty = d > 0.01 ? y / d : (rand() * 2 - 1);
+      const amp = 6 + edgeBias * 22 + rand() * 4;
+      arr.push({ x, y, r, bright, star, tx, ty, amp });
+      count++;
     }
+    return arr;
+  }, []);
 
-    async function sendMessage() {
-      const text = input.value.trim();
-      if (!text) return;
-      input.value = '';
-      send.disabled = true;
-      addMessage(text, 'user');
-      addMessage('Nova is thinking...', 'nova');
-      try {
-        const res = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text, session_id: SESSION_ID })
-        });
-        const data = await res.json();
-        messages.lastChild.textContent = data.reply;
-      } catch (e) {
-        messages.lastChild.textContent = 'Error connecting to Nova.';
+  return (
+    <svg className="orb-svg" viewBox="-160 -160 320 320">
+      <defs>
+        <radialGradient id="dustGlow" cx="50%" cy="50%">
+          <stop offset="0%" stopColor="#378ADD" stopOpacity="0.15" />
+          <stop offset="80%" stopColor="#378ADD" stopOpacity="0.02" />
+          <stop offset="100%" stopColor="#378ADD" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <circle r="140" fill="url(#dustGlow)" />
+      <circle className="dust-shell dust-shell-anim" r="130" />
+      {particles.map((p, i) => (
+        <circle
+          key={i}
+          className={`dust-particle ${p.bright ? 'bright' : ''} ${p.star ? 'star' : ''}`}
+          cx={p.x} cy={p.y} r={p.r}
+          style={{ '--tx': p.tx.toFixed(3), '--ty': p.ty.toFixed(3), '--amp': p.amp.toFixed(1) + 'px' }}
+        />
+      ))}
+    </svg>
+  );
+}
+
+/* ───── Voice envelope (simulated; wire to real audio for TTS later) ───── */
+function useVoiceEnvelope(ref, active) {
+  React.useEffect(() => {
+    if (!ref.current) return;
+    if (!active) { ref.current.style.setProperty('--voice-amp', '0'); return; }
+    let raf;
+    const start = performance.now();
+    let smoothed = 0;
+    const tick = (now) => {
+      const t = (now - start) / 1000;
+      const carrier = 0.45 + 0.45 * Math.sin(t * 2 * Math.PI * 4.2);
+      const flutter = 0.15 * Math.sin(t * 2 * Math.PI * 7.8 + 1.3);
+      const slow = 0.10 * Math.sin(t * 2 * Math.PI * 1.1);
+      const gate = Math.sin(t * 2 * Math.PI * 0.6) > 0.85 ? 0.3 : 1;
+      let target = Math.max(0, Math.min(1, (carrier + flutter + slow) * gate));
+      smoothed += (target - smoothed) * 0.35;
+      if (ref.current) ref.current.style.setProperty('--voice-amp', smoothed.toFixed(3));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [active, ref]);
+}
+
+function Orb({ state, onClick }) {
+  const wrapRef = useRef(null);
+  useVoiceEnvelope(wrapRef, state === 'speaking');
+  return (
+    <div ref={wrapRef} className={`orb-wrap orb-dust ${state}`} onClick={onClick} title={IS_MOBILE ? 'Tap to speak' : 'Click or hold Space to speak'}>
+      <OrbDust />
+    </div>
+  );
+}
+
+/* ───── Sidebar ───── */
+function Sidebar({ active, setActive }) {
+  const main = [{ id: 'home', label: 'Home' }, { id: 'dashboard', label: 'Dashboard' }, { id: 'memory', label: 'Memory' }];
+  const history = [{ id: 'yesterday', label: 'Yesterday' }, { id: 'thisweek', label: 'This week' }];
+  return (
+    <aside className="sidebar">
+      <div className="brand">
+        <div className="brand-mark"></div>
+        <div className="brand-name">Nova</div>
+      </div>
+      <div className="nav-section">
+        <div className="nav-label">MAIN</div>
+        {main.map(item => (
+          <div key={item.id} className={`nav-item ${active === item.id ? 'active' : ''}`} onClick={() => setActive(item.id)}>
+            <span className="nav-dot"></span><span>{item.label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="nav-section">
+        <div className="nav-label">HISTORY</div>
+        {history.map(item => (
+          <div key={item.id} className={`nav-item ${active === item.id ? 'active' : ''}`} onClick={() => setActive(item.id)}>
+            <span className="nav-dot"></span><span>{item.label}</span>
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+/* ───── Now strip ───── */
+function NowStrip() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => { const id = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(id); }, []);
+  const time = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const day = now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+  return (
+    <div className="now-strip">
+      <div className="now-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><line x1="12" y1="19" x2="12" y2="22" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><line x1="2" y1="12" x2="5" y2="12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><line x1="19" y1="12" x2="22" y2="12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+      </div>
+      <div className="now-time">{time}</div>
+      <div className="now-sep"></div>
+      <div className="now-meta">{day}</div>
+    </div>
+  );
+}
+
+/* ───── Input bar ───── */
+function InputBar({ onSend, disabled }) {
+  const [val, setVal] = useState('');
+  const submit = () => { const v = val.trim(); if (!v || disabled) return; onSend(v); setVal(''); };
+  return (
+    <div className="input-bar">
+      <input
+        type="text" placeholder="Type a message to Nova…"
+        value={val} onChange={e => setVal(e.target.value)}
+        onKeyDown={e => e.key === 'Enter' && submit()}
+        disabled={disabled}
+      />
+      <button className="send-btn" onClick={submit} disabled={!val.trim() || disabled} title="Send">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/>
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+/* ───── Transcript ───── */
+function Transcript({ messages, isThinking }) {
+  const ref = useRef(null);
+  useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, [messages, isThinking]);
+  if (messages.length === 0 && !isThinking) return null;
+  return (
+    <div className="transcript" ref={ref}>
+      {messages.map((m, i) => (
+        <div className="transcript-msg" key={i}>
+          <div className={`msg-who ${m.who}`}>{m.who === 'you' ? 'You' : 'Nova'}</div>
+          <div className={`msg-text ${m.who}`}>{m.text}</div>
+        </div>
+      ))}
+      {isThinking && (
+        <div className="transcript-msg">
+          <div className="msg-who nova">Nova</div>
+          <div className="msg-text"><div className="typing"><span></span><span></span><span></span></div></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ───── Tasks ───── */
+function TasksCard({ tasks, toggleTask }) {
+  const remaining = tasks.filter(t => !t.done).length;
+  return (
+    <div>
+      <div className="panel-label"><span>TODAY'S TASKS</span><span className="panel-meta">{remaining} open</span></div>
+      <div className="card">
+        {tasks.map(t => (
+          <div key={t.id} className={`task ${t.done ? 'done' : ''}`} onClick={() => toggleTask(t.id)}>
+            <div className="check">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div className="task-name">{t.name}</div>
+            <div className={`task-time ${t.urgent ? 'urgent' : 'normal'}`}>{t.time}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ───── Schedule ───── */
+function ScheduleCard({ events }) {
+  const today = new Date().toLocaleDateString([], { weekday: 'long' });
+  const dateStr = new Date().toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return (
+    <div>
+      <div className="panel-label"><span>SCHEDULE</span><span className="panel-meta">{events.length} events</span></div>
+      <div className="card sched-card">
+        <div className="sched-day">
+          <div className="sched-day-name">{today}</div>
+          <div className="sched-day-date">{dateStr}</div>
+        </div>
+        <div className="sched-list">
+          <div className="sched-rail"></div>
+          {events.map((e, i) => (
+            <div key={i} className={`sched-item ${e.status || ''}`}>
+              <div className="sched-time">{e.time}</div>
+              <div className="sched-dot-wrap"><div className="sched-dot"></div></div>
+              <div className="sched-body">
+                <div className="sched-title">{e.title}</div>
+                {e.sub && <div className="sched-sub">{e.sub}</div>}
+                {e.tag && <div className={`sched-tag ${e.tagKind || 'focus'}`}>{e.tag}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ───── Memory ───── */
+function MemoryCard({ items }) {
+  return (
+    <div>
+      <div className="panel-label"><span>NOVA REMEMBERS</span></div>
+      <div className="card">
+        {items.map((m, i) => (
+          <div className="memory" key={i}>
+            <div className="memory-dot"></div>
+            <div className="memory-text">{m}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ───── App ───── */
+function App() {
+  const [activeNav, setActiveNav] = useState('home');
+  const [orbState, setOrbState] = useState('idle');
+  const [messages, setMessages] = useState([]);
+  const [isThinking, setIsThinking] = useState(false);
+  const [statusLabel, setStatusLabel] = useState('Nova online');
+  const [isRecording, setIsRecording] = useState(false);
+
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const orbStateRef = useRef('idle');
+
+  // Keep ref in sync with state for use in event handlers
+  useEffect(() => { orbStateRef.current = orbState; }, [orbState]);
+
+  const [tasks, setTasks] = useState([
+    { id: 1, name: 'Morning standup', time: '9am',  done: true,  urgent: false },
+    { id: 2, name: 'Client proposal', time: '5pm',  done: false, urgent: true  },
+    { id: 3, name: 'Team sync',       time: '2pm',  done: false, urgent: false },
+    { id: 4, name: 'Gym',             time: '6pm',  done: false, urgent: true  },
+  ]);
+
+  const events = [
+    { time: '9:00',  title: 'Morning standup',      sub: '15 min · Engineering',    status: 'done' },
+    { time: '10:30', title: 'Design review',        sub: '45 min · with Maya, Jon', status: 'done' },
+    { time: '2:00',  title: 'Team sync',            sub: 'Now · 6 attendees',       tag: 'Live',  tagKind: 'live', status: 'now' },
+    { time: '3:30',  title: 'Focus block',          sub: '90 min · Client proposal',tag: 'Focus', tagKind: 'focus' },
+    { time: '5:00',  title: 'Client call',          sub: '30 min · Zoom' },
+    { time: '6:00',  title: 'Gym',                  sub: 'Strength · 60 min' },
+  ];
+
+  const memory = [
+    'Prefers short morning briefs',
+    'Client proposal is for Meridian Corp',
+    'Gym goal: 4x per week',
+  ];
+
+  const toggleTask = id => setTasks(ts => ts.map(t => t.id === id ? { ...t, done: !t.done } : t));
+
+  /* ── Send text message to Nova ── */
+  const sendMessage = useCallback(async (text) => {
+    setMessages(m => [...m, { who: 'you', text }]);
+    setIsThinking(true);
+    setOrbState('thinking');
+    setStatusLabel('Thinking…');
+    try {
+      const res = await fetch(`${API_BASE}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, session_id: SESSION_ID })
+      });
+      const data = await res.json();
+      setMessages(m => [...m, { who: 'nova', text: data.reply }]);
+      setIsThinking(false);
+      setOrbState('speaking');
+      setStatusLabel('Speaking…');
+      const speakMs = Math.min(8000, Math.max(2200, data.reply.length * 55));
+      setTimeout(() => { setOrbState('idle'); setStatusLabel('Nova online'); }, speakMs);
+    } catch (err) {
+      setMessages(m => [...m, { who: 'nova', text: 'Something went wrong. Please try again.' }]);
+      setIsThinking(false);
+      setOrbState('idle');
+      setStatusLabel('Nova online');
+    }
+  }, []);
+
+  /* ── Voice recording ── */
+  const startRecording = useCallback(async () => {
+    if (orbStateRef.current !== 'idle') return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      recorder.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setOrbState('thinking');
+        setStatusLabel('Transcribing…');
+        try {
+          const formData = new FormData();
+          formData.append('audio', blob, 'recording.webm');
+          const res = await fetch(`${API_BASE}/transcribe`, { method: 'POST', body: formData });
+          if (!res.ok) throw new Error('not available');
+          const { text } = await res.json();
+          if (text && text.trim()) {
+            await sendMessage(text.trim());
+          } else {
+            setOrbState('idle');
+            setStatusLabel('Nova online');
+          }
+        } catch {
+          // Voice not set up yet — guide user to type
+          setMessages(m => [...m, { who: 'nova', text: "Voice input isn't set up yet — type your message below and I'll respond." }]);
+          setOrbState('idle');
+          setStatusLabel('Nova online');
+        }
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+      setOrbState('listening');
+      setStatusLabel('Listening…');
+    } catch (err) {
+      console.error('Microphone error:', err);
+    }
+  }, [sendMessage]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  }, []);
+
+  const toggleOrb = useCallback(() => {
+    if (orbStateRef.current === 'idle') startRecording();
+    else if (orbStateRef.current === 'listening') stopRecording();
+  }, [startRecording, stopRecording]);
+
+  /* ── Keyboard shortcuts ── */
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault();
+        if (orbStateRef.current === 'idle') startRecording();
       }
-      send.disabled = false;
-      input.focus();
-    }
+      if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault();
+        document.querySelector('.input-bar input')?.focus();
+      }
+    };
+    const onKeyUp = (e) => {
+      if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault();
+        if (orbStateRef.current === 'listening') stopRecording();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); };
+  }, [startRecording, stopRecording]);
 
-    send.addEventListener('click', sendMessage);
-    input.addEventListener('keypress', e => { if (e.key === 'Enter') sendMessage(); });
-  </script>
+  /* ── Hint text ── */
+  const hint = orbState === 'listening' ? 'Listening… tap orb or release Space to send'
+    : orbState === 'thinking' ? 'Nova is thinking…'
+    : orbState === 'speaking' ? 'Nova is speaking…'
+    : IS_MOBILE
+      ? 'Tap orb to speak'
+      : <>Click orb or hold <span className="kbd">Space</span> to speak — <span className="kbd">/</span> to type</>;
+
+  return (
+    <div className="app">
+      <Sidebar active={activeNav} setActive={setActiveNav} />
+
+      <main className="main">
+        <div className="status">
+          <span className={`status-dot ${isRecording ? 'recording' : ''}`}></span>
+          <span>{statusLabel}</span>
+        </div>
+
+        <NowStrip />
+        <Orb state={orbState} onClick={toggleOrb} />
+        <div className="hint">{hint}</div>
+        <InputBar onSend={sendMessage} disabled={orbState === 'thinking'} />
+        <Transcript messages={messages} isThinking={isThinking} />
+      </main>
+
+      <aside className="right">
+        <ScheduleCard events={events} />
+        <TasksCard tasks={tasks} toggleTask={toggleTask} />
+        <MemoryCard items={memory} />
+      </aside>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+/* ── PWA service worker registration ── */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+  });
+}
+</script>
 </body>
 </html>
