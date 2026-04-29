@@ -48,7 +48,7 @@
 
   /* ───── Mobile header ───── */
   .mobile-header { display: none; }
-  @media (max-width: 768px) {
+  @media (max-width: 900px) {
     .mobile-header {
       display: flex; align-items: center; justify-content: space-between;
       padding: 16px 20px; border-bottom: 1px solid var(--border);
@@ -105,22 +105,22 @@
   .menu-item.active .menu-dot { background: var(--blue); opacity: 1; box-shadow: 0 0 8px var(--blue); }
 
   /* ───── Mobile layout ───── */
-  @media (max-width: 768px) {
+  @media (max-width: 900px) {
     html, body { overflow: hidden; }
-    .app { display: flex; flex-direction: column; height: 100vh; }
-    .sidebar { display: none; }
-    .right { display: none; }
-    .status { display: none; }
-    .now-strip { display: none; }
+    .app { display: flex !important; flex-direction: column !important; height: 100vh; }
+    .sidebar { display: none !important; }
+    .right { display: none !important; }
+    .status { display: none !important; }
+    .now-strip { display: none !important; }
     .main {
       flex: 1; overflow-y: auto; padding: 0;
-      display: flex; flex-direction: column; align-items: stretch;
+      display: flex !important; flex-direction: column; align-items: stretch;
     }
     .mobile-main-inner {
       display: flex; flex-direction: column; align-items: center;
       padding: 8px 20px 40px; flex: 1;
     }
-    .orb-wrap { width: min(300px, 82vw); height: min(300px, 82vw); margin: 4px 0 0; }
+    .orb-wrap { width: min(300px, 82vw) !important; height: min(300px, 82vw) !important; margin: 4px 0 0; }
     .input-bar { max-width: 100%; }
     .transcript { max-width: 100%; max-height: none; }
   }
@@ -450,7 +450,7 @@
     background: var(--card); border: 1px solid var(--border);
     border-radius: 999px; font-size: 11.5px; color: var(--text-muted); z-index: 5;
   }
-  @media (max-width: 768px) { .status { right: 16px; } }
+  @media (max-width: 900px) { .status { right: 16px; } }
   .status-dot {
     width: 6px; height: 6px; border-radius: 50%;
     background: var(--blue); box-shadow: 0 0 8px var(--blue);
