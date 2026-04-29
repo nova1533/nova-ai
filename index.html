@@ -46,16 +46,83 @@
     height: 100vh;
   }
 
+  /* ───── Mobile header ───── */
+  .mobile-header { display: none; }
+  @media (max-width: 768px) {
+    .mobile-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      background: var(--bg); flex-shrink: 0; z-index: 10;
+    }
+    .mobile-title { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+    .hamburger {
+      width: 36px; height: 36px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 5px;
+      background: transparent; border: none; cursor: pointer; padding: 4px;
+    }
+    .hamburger span {
+      display: block; width: 20px; height: 1.5px;
+      background: var(--text-muted); border-radius: 2px; transition: all 0.2s;
+    }
+  }
+
+  /* ───── Mobile slide-in menu ───── */
+  .mobile-menu-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    z-index: 50; display: none; animation: fadeIn 0.2s ease;
+  }
+  .mobile-menu-overlay.open { display: block; }
+  .mobile-menu-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 280px;
+    background: var(--card); border-left: 1px solid var(--border);
+    padding: 24px 16px; z-index: 51;
+    transform: translateX(100%); transition: transform 0.25s ease;
+    overflow-y: auto;
+  }
+  .mobile-menu-panel.open { transform: translateX(0); }
+  .menu-close {
+    display: flex; justify-content: flex-end; margin-bottom: 24px;
+  }
+  .menu-close button {
+    background: transparent; border: none; color: var(--text-muted);
+    font-size: 20px; cursor: pointer; padding: 4px 8px;
+  }
+  .menu-section-label {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.12em;
+    color: var(--text-dim); padding: 12px 12px 8px;
+  }
+  .menu-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 12px; border-radius: 8px;
+    color: var(--text-muted); cursor: pointer;
+    font-size: 14px; font-weight: 500;
+    transition: all 0.15s ease;
+  }
+  .menu-item:hover, .menu-item.active {
+    background: rgba(55, 138, 221, 0.10); color: var(--text);
+  }
+  .menu-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.5; }
+  .menu-item.active .menu-dot { background: var(--blue); opacity: 1; box-shadow: 0 0 8px var(--blue); }
+
   /* ───── Mobile layout ───── */
   @media (max-width: 768px) {
-    .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+    html, body { overflow: hidden; }
+    .app { display: flex; flex-direction: column; height: 100vh; }
     .sidebar { display: none; }
     .right { display: none; }
-    .main { padding: 16px 20px 24px; overflow-y: auto; }
-    .orb-wrap { width: 280px; height: 280px; }
-    .now-strip { font-size: 11px; gap: 10px; padding: 8px 14px; }
+    .status { display: none; }
+    .now-strip { display: none; }
+    .main {
+      flex: 1; overflow-y: auto; padding: 0;
+      display: flex; flex-direction: column; align-items: stretch;
+    }
+    .mobile-main-inner {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 8px 20px 40px; flex: 1;
+    }
+    .orb-wrap { width: min(300px, 82vw); height: min(300px, 82vw); margin: 4px 0 0; }
     .input-bar { max-width: 100%; }
-    .transcript { max-width: 100%; }
+    .transcript { max-width: 100%; max-height: none; }
   }
 
   /* ───── Sidebar ───── */
@@ -653,9 +720,37 @@ function MemoryCard({ items }) {
   );
 }
 
+/* ───── Mobile hamburger menu ───── */
+function MobileMenu({ open, onClose, activeNav, setActiveNav }) {
+  const items = [
+    { id: 'home', label: 'Home' },
+    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'history', label: 'History' },
+    { id: 'schedule', label: 'Schedule' },
+    { id: 'tasks', label: 'Tasks' },
+  ];
+  const select = (id) => { setActiveNav(id); onClose(); };
+  return (
+    <>
+      <div className={`mobile-menu-overlay ${open ? 'open' : ''}`} onClick={onClose} />
+      <div className={`mobile-menu-panel ${open ? 'open' : ''}`}>
+        <div className="menu-close"><button onClick={onClose}>✕</button></div>
+        <div className="menu-section-label">MENU</div>
+        {items.map(item => (
+          <div key={item.id} className={`menu-item ${activeNav === item.id ? 'active' : ''}`} onClick={() => select(item.id)}>
+            <span className="menu-dot"></span>
+            <span>{item.label}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 /* ───── App ───── */
 function App() {
   const [activeNav, setActiveNav] = useState('home');
+  const [menuOpen, setMenuOpen] = useState(false);
   const [orbState, setOrbState] = useState('idle');
   const [messages, setMessages] = useState([]);
   const [isThinking, setIsThinking] = useState(false);
@@ -809,17 +904,29 @@ function App() {
     <div className="app">
       <Sidebar active={activeNav} setActive={setActiveNav} />
 
+      {/* Mobile header — only visible on mobile */}
+      <div className="mobile-header">
+        <div className="mobile-title">Nova</div>
+        <button className="hamburger" onClick={() => setMenuOpen(true)} aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+
+      <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} activeNav={activeNav} setActiveNav={setActiveNav} />
+
       <main className="main">
         <div className="status">
           <span className={`status-dot ${isRecording ? 'recording' : ''}`}></span>
           <span>{statusLabel}</span>
         </div>
 
-        <NowStrip />
-        <Orb state={orbState} onClick={toggleOrb} />
-        <div className="hint">{hint}</div>
-        <InputBar onSend={sendMessage} disabled={orbState === 'thinking'} />
-        <Transcript messages={messages} isThinking={isThinking} />
+        <div className="mobile-main-inner">
+          <NowStrip />
+          <Orb state={orbState} onClick={toggleOrb} />
+          <div className="hint">{hint}</div>
+          <InputBar onSend={sendMessage} disabled={orbState === 'thinking'} />
+          <Transcript messages={messages} isThinking={isThinking} />
+        </div>
       </main>
 
       <aside className="right">
