@@ -4,7 +4,6 @@ const cors = require('cors');
 const multer = require('multer');
 const Anthropic = require('@anthropic-ai/sdk');
 const { createClient } = require('@supabase/supabase-js');
-const deepgramSdk = require('@deepgram/sdk');
 
 const app = express();
 app.use(cors());
@@ -13,7 +12,6 @@ app.use(express.json());
 const upload = multer({ storage: multer.memoryStorage() });
 const client = new Anthropic();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const deepgram = deepgramSdk.createClient(process.env.DEEPGRAM_API_KEY);
 
 const SYSTEM_PROMPT = `You are Nova, a witty and confident voice assistant. Your job is not just to complete tasks — it's to be genuinely useful, occasionally entertaining, and always honest.
 
@@ -84,11 +82,16 @@ app.post('/chat', async (req, res) => {
 /* ── Speech to text (Deepgram) ── */
 app.post('/transcribe', upload.single('audio'), async (req, res) => {
   try {
-    const { result } = await deepgram.listen.prerecorded.transcribeFile(
-      req.file.buffer,
-      { model: 'nova-2', language: 'en', smart_format: true }
-    );
-    const text = result?.results?.channels?.[0]?.alternatives?.[0]?.transcript || '';
+    const response = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&language=en', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Token ${process.env.DEEPGRAM_API_KEY}`,
+        'Content-Type': req.file.mimetype || 'audio/webm'
+      },
+      body: req.file.buffer
+    });
+    const data = await response.json();
+    const text = data?.results?.channels?.[0]?.alternatives?.[0]?.transcript || '';
     res.json({ text });
   } catch (err) {
     console.error('Transcription error:', err);
