@@ -3,8 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const Anthropic = require('@anthropic-ai/sdk');
-const { createClient: createSupabase } = require('@supabase/supabase-js');
-const { createClient: createDeepgram } = require('@deepgram/sdk');
+const { createClient } = require('@supabase/supabase-js');
+const deepgramSdk = require('@deepgram/sdk');
 
 const app = express();
 app.use(cors());
@@ -12,8 +12,8 @@ app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage() });
 const client = new Anthropic();
-const supabase = createSupabase(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const deepgram = createDeepgram(process.env.DEEPGRAM_API_KEY);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const deepgram = deepgramSdk.createClient(process.env.DEEPGRAM_API_KEY);
 
 const SYSTEM_PROMPT = `You are Nova, a witty and confident voice assistant. Your job is not just to complete tasks — it's to be genuinely useful, occasionally entertaining, and always honest.
 
