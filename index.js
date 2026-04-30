@@ -120,7 +120,11 @@ app.post('/speak', async (req, res) => {
       })
     });
 
-    if (!response.ok) throw new Error('ElevenLabs error');
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('ElevenLabs error:', response.status, errText);
+      throw new Error('ElevenLabs error');
+    }
 
     res.set('Content-Type', 'audio/mpeg');
     const buffer = Buffer.from(await response.arrayBuffer());
