@@ -1,15 +1,19 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const multer = require('multer');
 const Anthropic = require('@anthropic-ai/sdk');
-const { createClient } = require('@supabase/supabase-js');
+const { createClient: createSupabase } = require('@supabase/supabase-js');
+const { createClient: createDeepgram } = require('@deepgram/sdk');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+const upload = multer({ storage: multer.memoryStorage() });
 const client = new Anthropic();
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const supabase = createSupabase(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const deepgram = createDeepgram(process.env.DEEPGRAM_API_KEY);
 
 const SYSTEM_PROMPT = `You are Nova, a witty and confident voice assistant. Your job is not just to complete tasks — it's to be genuinely useful, occasionally entertaining, and always honest.
 
@@ -42,8 +46,8 @@ const SYSTEM_PROMPT = `You are Nova, a witty and confident voice assistant. Your
 - Never be sycophantic. Don't open with "Great question!" or "Absolutely!" — just answer.
 - Never pretend to know something you don't. A confident "I'm not sure, let me think through that" beats a confident wrong answer.
 
-## Future: speech mode
-- When speech output is enabled, avoid markdown formatting, bullet points, headers, and symbols. Write responses as natural spoken sentences only.`;
+## Speech mode
+- Always respond in natural spoken sentences. No markdown, no bullet points, no headers, no symbols like asterisks or dashes. Write exactly as you would speak it out loud.`;
 
 app.post('/chat', async (req, res) => {
   const { message, session_id } = req.body;
@@ -75,6 +79,53 @@ app.post('/chat', async (req, res) => {
   if (insertError) console.error('Supabase insert error:', insertError);
 
   res.json({ reply });
+});
+
+/* ── Speech to text (Deepgram) ── */
+app.post('/transcribe', upload.single('audio'), async (req, res) => {
+  try {
+    const { result } = await deepgram.listen.prerecorded.transcribeFile(
+      req.file.buffer,
+      { model: 'nova-2', language: 'en', smart_format: true }
+    );
+    const text = result?.results?.channels?.[0]?.alternatives?.[0]?.transcript || '';
+    res.json({ text });
+  } catch (err) {
+    console.error('Transcription error:', err);
+    res.status(500).json({ error: 'Transcription failed' });
+  }
+});
+
+/* ── Text to speech (ElevenLabs) ── */
+app.post('/speak', async (req, res) => {
+  try {
+    const { text } = req.body;
+    const voiceId = process.env.ELEVENLABS_VOICE_ID;
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      method: 'POST',
+      headers: {
+        'xi-api-key': apiKey,
+        'Content-Type': 'application/json',
+        'Accept': 'audio/mpeg'
+      },
+      body: JSON.stringify({
+        text,
+        model_id: 'eleven_turbo_v2_5',
+        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+      })
+    });
+
+    if (!response.ok) throw new Error('ElevenLabs error');
+
+    res.set('Content-Type', 'audio/mpeg');
+    const buffer = Buffer.from(await response.arrayBuffer());
+    res.send(buffer);
+  } catch (err) {
+    console.error('TTS error:', err);
+    res.status(500).json({ error: 'TTS failed' });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
