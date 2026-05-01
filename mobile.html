@@ -460,11 +460,12 @@ function App() {
   const orbStateRef      = useRef('idle');
   useEffect(() => { orbStateRef.current = orbState; }, [orbState]);
 
-  // Request mic permission once on mount so iOS remembers it
+  // Request mic permission once on mount — just to trigger the iOS prompt early
+  // so it's out of the way. We don't keep this stream; we release it immediately.
   useEffect(() => {
     navigator.mediaDevices.getUserMedia({ audio: true })
-      .then(stream => { micStreamRef.current = stream; })
-      .catch(() => {}); // user can deny; we'll handle it gracefully on first tap
+      .then(stream => { stream.getTracks().forEach(t => t.stop()); })
+      .catch(() => {});
   }, []);
 
   const orbWrapRef  = useRef(null);
@@ -489,6 +490,12 @@ function App() {
 
   const speakText = useCallback(async (text) => {
     try {
+      // Stop mic stream before playing audio — iOS routes to earpiece when mic is active
+      if (micStreamRef.current) {
+        micStreamRef.current.getTracks().forEach(t => t.stop());
+        micStreamRef.current = null;
+      }
+
       const res = await fetch(`${API_BASE}/speak`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -564,16 +571,15 @@ function App() {
   const startRecording = useCallback(async () => {
     if (orbStateRef.current !== 'idle') return;
     try {
-      // Reuse the existing stream if we have one; otherwise request fresh
-      if (!micStreamRef.current || !micStreamRef.current.active) {
-        micStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
-      }
+      // Always request a fresh stream — iOS won't prompt again once permission is granted.
+      // We need a new stream here because we stopped the mic before playback
+      // to force audio through the speaker instead of the earpiece.
+      micStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
       const stream = micStreamRef.current;
       const recorder = new MediaRecorder(stream);
       audioChunksRef.current = [];
       recorder.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
       recorder.onstop = async () => {
-        // Don't stop the stream — keep it alive so iOS doesn't ask again
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         setOrbState('thinking');
         try {
