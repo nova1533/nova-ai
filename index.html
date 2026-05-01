@@ -891,10 +891,22 @@ function App() {
     }
   }, []);
 
+  const stopSpeaking = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.onended = null;
+      audio.onerror = null;
+    }
+    setOrbState('idle');
+    setStatusLabel('Nova online');
+  }, []);
+
   const toggleOrb = useCallback(() => {
     if (orbStateRef.current === 'idle') startRecording();
     else if (orbStateRef.current === 'listening') stopRecording();
-  }, [startRecording, stopRecording]);
+    else if (orbStateRef.current === 'speaking') stopSpeaking();
+  }, [startRecording, stopRecording, stopSpeaking]);
 
   /* ── Keyboard shortcuts ── */
   useEffect(() => {
@@ -922,7 +934,7 @@ function App() {
   /* ── Hint text ── */
   const hint = orbState === 'listening' ? 'Listening… tap orb or release Space to send'
     : orbState === 'thinking' ? 'Nova is thinking…'
-    : orbState === 'speaking' ? 'Nova is speaking…'
+    : orbState === 'speaking' ? 'Click orb to interrupt'
     : IS_MOBILE
       ? 'Tap orb to speak'
       : <>Click orb or hold <span className="kbd">Space</span> to speak — <span className="kbd">/</span> to type</>;

@@ -591,15 +591,26 @@ function App() {
     }
   }, []);
 
+  const stopSpeaking = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.onended = null;
+      audio.onerror = null;
+    }
+    setOrbState('idle');
+  }, []);
+
   const toggleOrb = useCallback(() => {
     unlockAudio(); // must happen during the user gesture, before any async work
     if (orbStateRef.current === 'idle') startRecording();
     else if (orbStateRef.current === 'listening') stopRecording();
-  }, [unlockAudio, startRecording, stopRecording]);
+    else if (orbStateRef.current === 'speaking') stopSpeaking();
+  }, [unlockAudio, startRecording, stopRecording, stopSpeaking]);
 
   const hint = orbState === 'listening' ? 'Listening… tap to send'
     : orbState === 'thinking'  ? 'Nova is thinking…'
-    : orbState === 'speaking'  ? 'Nova is speaking…'
+    : orbState === 'speaking'  ? 'Tap orb to interrupt'
     : 'Tap orb to speak';
 
   return (

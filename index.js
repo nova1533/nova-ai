@@ -247,11 +247,16 @@ app.post('/chat', async (req, res) => {
 
   let reply = '';
 
+  const nowDate = new Date();
+  const dateStr = nowDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: process.env.TIMEZONE || 'America/Chicago' });
+  const timeStr = nowDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: process.env.TIMEZONE || 'America/Chicago' });
+  const systemWithDate = `Today is ${dateStr}. The current time is ${timeStr}.\n\n${SYSTEM_PROMPT}`;
+
   while (true) {
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      system: systemWithDate,
       tools: TOOLS,
       messages
     });
