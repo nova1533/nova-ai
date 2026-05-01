@@ -84,7 +84,9 @@ app.get('/debug-env', (req, res) => {
   res.json({
     elevenlabs_key_length: process.env.ELEVENLABS_API_KEY?.length || 0,
     elevenlabs_key_start: process.env.ELEVENLABS_API_KEY?.substring(0, 5) || 'missing',
-    voice_id_set: !!process.env.ELEVENLABS_VOICE_ID
+    voice_id_set: !!process.env.ELEVENLABS_VOICE_ID,
+    test_var: process.env.TEST_VAR || 'missing',
+    anthropic_set: !!process.env.ANTHROPIC_API_KEY
   });
 });
 
