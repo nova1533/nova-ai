@@ -460,34 +460,36 @@ function App() {
   const orbStateRef      = useRef('idle');
   useEffect(() => { orbStateRef.current = orbState; }, [orbState]);
 
-  // Request mic permission once on mount — just to trigger the iOS prompt early
-  // so it's out of the way. We don't keep this stream; we release it immediately.
-  useEffect(() => {
-    navigator.mediaDevices.getUserMedia({ audio: true })
-      .then(stream => { stream.getTracks().forEach(t => t.stop()); })
-      .catch(() => {});
-  }, []);
-
   const orbWrapRef  = useRef(null);
-  const audioRef    = useRef(null); // single persistent Audio element — iOS remembers unlock per element
+  const audioCtxRef = useRef(null);
 
-  // During the user's tap gesture, create the Audio element and play a silent clip.
-  // iOS grants "play permission" to this specific element; we reuse it for real audio later.
+  // Called on every orb tap (user gesture). Creates + unlocks an AudioContext by
+  // playing a silent buffer. Once unlocked, the context stays trusted for the session
+  // even through async chains — unlike HTML Audio which iOS re-locks after mic use.
   const unlockAudio = useCallback(() => {
-    if (audioRef.current) return;
-    const audio = new Audio();
-    audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-    audio.play().catch(() => {});
-    audioRef.current = audio;
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    const ctx = audioCtxRef.current;
+    if (ctx.state === 'suspended') ctx.resume();
+    // Play a one-sample silent buffer to fully activate the context
+    const buf = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
   }, []);
 
   const speakText = useCallback(async (text) => {
     try {
-      // Stop mic before playback — iOS routes audio to earpiece when mic is active
+      // Stop mic first — while mic is active iOS forces audio through the earpiece
       if (micStreamRef.current) {
         micStreamRef.current.getTracks().forEach(t => t.stop());
         micStreamRef.current = null;
       }
+
+      // Brief pause so iOS can switch its audio session from mic → speaker
+      await new Promise(r => setTimeout(r, 300));
 
       const res = await fetch(`${API_BASE}/speak`, {
         method: 'POST',
@@ -496,22 +498,20 @@ function App() {
       });
       if (!res.ok) throw new Error('TTS failed');
 
-      const blob = await res.blob();
-      if (blob.size === 0) { setOrbState('idle'); return; }
+      const arrayBuffer = await res.arrayBuffer();
+      const ctx = audioCtxRef.current;
+      if (!ctx) { setOrbState('idle'); return; }
+      if (ctx.state === 'suspended') await ctx.resume();
 
-      const url   = URL.createObjectURL(blob);
-
-      // Reuse the Audio element unlocked during the tap gesture
-      const audio = audioRef.current;
-      if (!audio) { setOrbState('idle'); return; }
-
-      audio.onended = () => { URL.revokeObjectURL(url); setOrbState('idle'); };
-      audio.onerror = () => { URL.revokeObjectURL(url); setOrbState('idle'); };
-      audio.src = url;
-      audio.load();
+      // Decode and play entirely through the already-unlocked AudioContext
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      const source      = ctx.createBufferSource();
+      source.buffer     = audioBuffer;
+      source.connect(ctx.destination);
 
       setOrbState('speaking');
-      await audio.play();
+      source.start(0);
+      source.onended = () => setOrbState('idle');
 
     } catch (err) {
       console.error('speakText error:', err);
