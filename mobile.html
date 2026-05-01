@@ -456,8 +456,16 @@ function App() {
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef   = useRef([]);
+  const micStreamRef     = useRef(null);
   const orbStateRef      = useRef('idle');
   useEffect(() => { orbStateRef.current = orbState; }, [orbState]);
+
+  // Request mic permission once on mount so iOS remembers it
+  useEffect(() => {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => { micStreamRef.current = stream; })
+      .catch(() => {}); // user can deny; we'll handle it gracefully on first tap
+  }, []);
 
   const orbWrapRef  = useRef(null);
   const audioCtxRef = useRef(null);
@@ -556,12 +564,16 @@ function App() {
   const startRecording = useCallback(async () => {
     if (orbStateRef.current !== 'idle') return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Reuse the existing stream if we have one; otherwise request fresh
+      if (!micStreamRef.current || !micStreamRef.current.active) {
+        micStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
+      const stream = micStreamRef.current;
       const recorder = new MediaRecorder(stream);
       audioChunksRef.current = [];
       recorder.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
       recorder.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop());
+        // Don't stop the stream — keep it alive so iOS doesn't ask again
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         setOrbState('thinking');
         try {
