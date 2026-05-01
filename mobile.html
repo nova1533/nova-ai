@@ -486,10 +486,9 @@ function App() {
       if (micStreamRef.current) {
         micStreamRef.current.getTracks().forEach(t => t.stop());
         micStreamRef.current = null;
+        // Brief pause so iOS can switch audio session from mic → speaker
+        await new Promise(r => setTimeout(r, 300));
       }
-
-      // Brief pause so iOS can switch its audio session from mic → speaker
-      await new Promise(r => setTimeout(r, 300));
 
       const res = await fetch(`${API_BASE}/speak`, {
         method: 'POST',
@@ -499,19 +498,30 @@ function App() {
       if (!res.ok) throw new Error('TTS failed');
 
       const arrayBuffer = await res.arrayBuffer();
+      if (!arrayBuffer.byteLength) { setOrbState('idle'); return; }
+
       const ctx = audioCtxRef.current;
-      if (!ctx) { setOrbState('idle'); return; }
-      if (ctx.state === 'suspended') await ctx.resume();
 
-      // Decode and play entirely through the already-unlocked AudioContext
-      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-      const source      = ctx.createBufferSource();
-      source.buffer     = audioBuffer;
-      source.connect(ctx.destination);
-
-      setOrbState('speaking');
-      source.start(0);
-      source.onended = () => setOrbState('idle');
+      if (ctx) {
+        // Voice path: AudioContext was unlocked during orb tap — use it directly
+        if (ctx.state === 'suspended') await ctx.resume();
+        const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
+        const source      = ctx.createBufferSource();
+        source.buffer     = audioBuffer;
+        source.connect(ctx.destination);
+        setOrbState('speaking');
+        source.start(0);
+        source.onended = () => setOrbState('idle');
+      } else {
+        // Typed message fallback: no AudioContext, use plain Audio element
+        const blob  = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+        const url   = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.onended = () => { URL.revokeObjectURL(url); setOrbState('idle'); };
+        audio.onerror = () => { URL.revokeObjectURL(url); setOrbState('idle'); };
+        setOrbState('speaking');
+        await audio.play();
+      }
 
     } catch (err) {
       console.error('speakText error:', err);
