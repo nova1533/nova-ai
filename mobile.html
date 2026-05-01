@@ -457,7 +457,6 @@ function App() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef   = useRef([]);
   const micStreamRef     = useRef(null);
-  const currentAudioRef  = useRef(null);
   const orbStateRef      = useRef('idle');
   useEffect(() => { orbStateRef.current = orbState; }, [orbState]);
 
@@ -470,15 +469,16 @@ function App() {
   }, []);
 
   const orbWrapRef  = useRef(null);
-  const audioCtxRef = useRef(null);
+  const audioRef    = useRef(null); // single persistent Audio element — iOS remembers unlock per element
 
-  // Unlock audio during the user gesture so iOS allows playback later in async code.
-  // We play a silent HTML5 Audio element — this is the most reliable unlock on iOS.
+  // During the user's tap gesture, create the Audio element and play a silent clip.
+  // iOS grants "play permission" to this specific element; we reuse it for real audio later.
   const unlockAudio = useCallback(() => {
-    if (audioCtxRef.current) return;
-    const silent = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
-    silent.play().catch(() => {});
-    audioCtxRef.current = true; // just marks that we've done the unlock
+    if (audioRef.current) return;
+    const audio = new Audio();
+    audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+    audio.play().catch(() => {});
+    audioRef.current = audio;
   }, []);
 
   const speakText = useCallback(async (text) => {
@@ -500,24 +500,17 @@ function App() {
       if (blob.size === 0) { setOrbState('idle'); return; }
 
       const url   = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audio.playsInline = true;
-      currentAudioRef.current = audio;
 
-      setOrbState('speaking');
+      // Reuse the Audio element unlocked during the tap gesture
+      const audio = audioRef.current;
+      if (!audio) { setOrbState('idle'); return; }
+
+      audio.onended = () => { URL.revokeObjectURL(url); setOrbState('idle'); };
+      audio.onerror = () => { URL.revokeObjectURL(url); setOrbState('idle'); };
+      audio.src = url;
       audio.load();
 
-      audio.onended = () => {
-        currentAudioRef.current = null;
-        URL.revokeObjectURL(url);
-        setOrbState('idle');
-      };
-      audio.onerror = () => {
-        currentAudioRef.current = null;
-        URL.revokeObjectURL(url);
-        setOrbState('idle');
-      };
-
+      setOrbState('speaking');
       await audio.play();
 
     } catch (err) {
