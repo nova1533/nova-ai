@@ -760,6 +760,7 @@ function App() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const orbStateRef = useRef('idle');
+  const audioRef = useRef(null);
 
   // Keep ref in sync with state for use in event handlers
   useEffect(() => { orbStateRef.current = orbState; }, [orbState]);
@@ -788,6 +789,35 @@ function App() {
 
   const toggleTask = id => setTasks(ts => ts.map(t => t.id === id ? { ...t, done: !t.done } : t));
 
+  /* ── Text to speech ── */
+  const speakText = useCallback(async (text) => {
+    try {
+      const res = await fetch(`${API_BASE}/speak`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      if (!res.ok) throw new Error('TTS failed');
+      const blob = await res.blob();
+      if (!blob.size) { setOrbState('idle'); setStatusLabel('Nova online'); return; }
+      const url = URL.createObjectURL(blob);
+      if (!audioRef.current) audioRef.current = new Audio();
+      const audio = audioRef.current;
+      audio.onended = null;
+      audio.onerror = null;
+      audio.src = url;
+      audio.onended = () => { URL.revokeObjectURL(url); setOrbState('idle'); setStatusLabel('Nova online'); };
+      audio.onerror = () => { URL.revokeObjectURL(url); setOrbState('idle'); setStatusLabel('Nova online'); };
+      setOrbState('speaking');
+      setStatusLabel('Speaking…');
+      await audio.play();
+    } catch (err) {
+      console.error('speakText error:', err);
+      setOrbState('idle');
+      setStatusLabel('Nova online');
+    }
+  }, []);
+
   /* ── Send text message to Nova ── */
   const sendMessage = useCallback(async (text) => {
     setMessages(m => [...m, { who: 'you', text }]);
@@ -803,17 +833,14 @@ function App() {
       const data = await res.json();
       setMessages(m => [...m, { who: 'nova', text: data.reply }]);
       setIsThinking(false);
-      setOrbState('speaking');
-      setStatusLabel('Speaking…');
-      const speakMs = Math.min(8000, Math.max(2200, data.reply.length * 55));
-      setTimeout(() => { setOrbState('idle'); setStatusLabel('Nova online'); }, speakMs);
+      await speakText(data.reply);
     } catch (err) {
       setMessages(m => [...m, { who: 'nova', text: 'Something went wrong. Please try again.' }]);
       setIsThinking(false);
       setOrbState('idle');
       setStatusLabel('Nova online');
     }
-  }, []);
+  }, [speakText]);
 
   /* ── Voice recording ── */
   const startRecording = useCallback(async () => {

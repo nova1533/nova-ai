@@ -93,7 +93,7 @@ app.get('/debug-env', (req, res) => {
 /* ── Speech to text (Deepgram) ── */
 app.post('/transcribe', upload.single('audio'), async (req, res) => {
   try {
-    const response = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&language=en', {
+    const response = await fetch('https://api.deepgram.com/v1/listen?model=nova-3&smart_format=true&language=en', {
       method: 'POST',
       headers: {
         'Authorization': `Token ${process.env.DEEPGRAM_API_KEY}`,
