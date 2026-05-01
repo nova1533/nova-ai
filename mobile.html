@@ -471,21 +471,13 @@ function App() {
   const orbWrapRef  = useRef(null);
   const audioCtxRef = useRef(null);
 
-  // iOS requires AudioContext to be created + a silent buffer played
-  // during a direct user gesture — we do this on every orb tap so it's
-  // already "unlocked" before the async fetch completes.
+  // Unlock audio during the user gesture so iOS allows playback later in async code.
+  // We play a silent HTML5 Audio element — this is the most reliable unlock on iOS.
   const unlockAudio = useCallback(() => {
-    if (audioCtxRef.current) {
-      if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
-      return;
-    }
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const silent = ctx.createBuffer(1, 1, 22050);
-    const src = ctx.createBufferSource();
-    src.buffer = silent;
-    src.connect(ctx.destination);
-    src.start(0);
-    audioCtxRef.current = ctx;
+    if (audioCtxRef.current) return;
+    const silent = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+    silent.play().catch(() => {});
+    audioCtxRef.current = true; // just marks that we've done the unlock
   }, []);
 
   const speakText = useCallback(async (text) => {
@@ -503,41 +495,23 @@ function App() {
       });
       if (!res.ok) throw new Error('TTS failed');
 
-      // Decode audio inside the pre-unlocked AudioContext — avoids iOS earpiece routing issues
-      const arrayBuffer = await res.arrayBuffer();
-      const ctx = audioCtxRef.current;
-      if (!ctx) throw new Error('AudioContext not ready');
-      if (ctx.state === 'suspended') await ctx.resume();
-
-      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      analyser.connect(ctx.destination);
-
-      const source = ctx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(analyser);
-
-      const buf = new Uint8Array(analyser.frequencyBinCount);
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const audio = new Audio(url);
 
       setOrbState('speaking');
-      source.start(0);
 
-      const tick = () => {
-        analyser.getByteTimeDomainData(buf);
-        let sum = 0;
-        for (let i = 0; i < buf.length; i++) sum += Math.abs(buf[i] - 128);
-        const amp = Math.min(1, (sum / buf.length) / 20);
-        if (orbWrapRef.current) orbWrapRef.current.style.setProperty('--voice-amp', amp.toFixed(3));
-        requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-
-      source.onended = () => {
-        if (orbWrapRef.current) orbWrapRef.current.style.setProperty('--voice-amp', '0');
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
         setOrbState('idle');
       };
+      audio.onerror = (e) => {
+        console.error('Audio playback error:', e);
+        URL.revokeObjectURL(url);
+        setOrbState('idle');
+      };
+
+      await audio.play();
 
     } catch (err) {
       console.error('speakText error:', err);
