@@ -482,6 +482,7 @@ function App() {
   }, []);
 
   const speakText = useCallback(async (text) => {
+    setMessages(m => [...m, { who: 'nova', text: '[debug] speakText started' }]);
     try {
       // Stop mic before playback — iOS routes audio to earpiece when mic is active
       if (micStreamRef.current) {
@@ -489,6 +490,7 @@ function App() {
         micStreamRef.current = null;
       }
 
+      setMessages(m => [...m, { who: 'nova', text: '[debug] fetching /speak...' }]);
       const res = await fetch(`${API_BASE}/speak`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -540,7 +542,7 @@ function App() {
       }
 
     } catch (err) {
-      console.error('speakText error:', err);
+      setMessages(m => [...m, { who: 'nova', text: `[debug] speakText threw: ${err.name} — ${err.message}` }]);
       setOrbState('idle');
     }
   }, []);
