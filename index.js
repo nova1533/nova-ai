@@ -4,6 +4,7 @@ const cors = require('cors');
 const multer = require('multer');
 const Anthropic = require('@anthropic-ai/sdk');
 const { createClient } = require('@supabase/supabase-js');
+const { google } = require('googleapis');
 
 const app = express();
 app.use(cors());
@@ -12,6 +13,161 @@ app.use(express.json());
 const upload = multer({ storage: multer.memoryStorage() });
 const client = new Anthropic();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  process.env.GOOGLE_REDIRECT_URI
+);
+
+async function loadTokens() {
+  const { data } = await supabase
+    .from('google_tokens')
+    .select('*')
+    .eq('user_id', 'boz')
+    .single();
+  return data;
+}
+
+async function saveTokens(tokens) {
+  await supabase.from('google_tokens').upsert({
+    user_id: 'boz',
+    access_token: tokens.access_token,
+    refresh_token: tokens.refresh_token,
+    expiry_date: tokens.expiry_date
+  });
+}
+
+async function getAuthClient() {
+  const tokens = await loadTokens();
+  if (!tokens) throw new Error('Nova is not connected to Google yet.');
+  oauth2Client.setCredentials(tokens);
+  if (tokens.expiry_date && Date.now() > tokens.expiry_date - 60000) {
+    const { credentials } = await oauth2Client.refreshAccessToken();
+    await saveTokens(credentials);
+    oauth2Client.setCredentials(credentials);
+  }
+  return oauth2Client;
+}
+
+async function getCalendarEvents(daysAhead = 7) {
+  const auth = await getAuthClient();
+  const calendar = google.calendar({ version: 'v3', auth });
+  const now = new Date();
+  const end = new Date();
+  end.setDate(end.getDate() + daysAhead);
+  const response = await calendar.events.list({
+    calendarId: 'primary',
+    timeMin: now.toISOString(),
+    timeMax: end.toISOString(),
+    singleEvents: true,
+    orderBy: 'startTime',
+    maxResults: 20
+  });
+  return response.data.items || [];
+}
+
+async function createCalendarEvent(summary, startDateTime, endDateTime, description = '') {
+  const auth = await getAuthClient();
+  const calendar = google.calendar({ version: 'v3', auth });
+  const response = await calendar.events.insert({
+    calendarId: 'primary',
+    resource: {
+      summary,
+      description,
+      start: { dateTime: startDateTime, timeZone: process.env.TIMEZONE || 'America/Chicago' },
+      end: { dateTime: endDateTime, timeZone: process.env.TIMEZONE || 'America/Chicago' }
+    }
+  });
+  return response.data;
+}
+
+async function getEmails(query = '', maxResults = 10) {
+  const auth = await getAuthClient();
+  const gmail = google.gmail({ version: 'v1', auth });
+  const listResponse = await gmail.users.messages.list({ userId: 'me', q: query, maxResults });
+  const messages = listResponse.data.messages || [];
+  const emails = await Promise.all(messages.map(async (msg) => {
+    const detail = await gmail.users.messages.get({
+      userId: 'me',
+      id: msg.id,
+      format: 'metadata',
+      metadataHeaders: ['From', 'Subject', 'Date']
+    });
+    const headers = detail.data.payload.headers;
+    const get = (name) => headers.find(h => h.name === name)?.value || '';
+    return {
+      id: msg.id,
+      from: get('From'),
+      subject: get('Subject'),
+      date: get('Date'),
+      snippet: detail.data.snippet
+    };
+  }));
+  return emails;
+}
+
+async function sendEmail(to, subject, body) {
+  const auth = await getAuthClient();
+  const gmail = google.gmail({ version: 'v1', auth });
+  const message = [`To: ${to}`, `Subject: ${subject}`, 'Content-Type: text/plain; charset=utf-8', '', body].join('\n');
+  const encoded = Buffer.from(message).toString('base64').replace(/\+/g, '-').replace(/\//g, '_');
+  const response = await gmail.users.messages.send({ userId: 'me', resource: { raw: encoded } });
+  return response.data;
+}
+
+const TOOLS = [
+  {
+    name: 'get_calendar_events',
+    description: 'Get upcoming calendar events. Use when the user asks about their schedule, meetings, or what they have planned.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        days_ahead: { type: 'number', description: 'How many days ahead to look. Default is 7.' }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'create_calendar_event',
+    description: 'Create a new calendar event. Only use this after the user has confirmed the details.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        summary: { type: 'string', description: 'Event title' },
+        start_datetime: { type: 'string', description: 'Start time in ISO 8601 format, e.g. 2026-05-01T14:00:00' },
+        end_datetime: { type: 'string', description: 'End time in ISO 8601 format' },
+        description: { type: 'string', description: 'Optional event description' }
+      },
+      required: ['summary', 'start_datetime', 'end_datetime']
+    }
+  },
+  {
+    name: 'get_emails',
+    description: 'Search and retrieve emails. Use when the user asks about emails or wants to find a specific message.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Gmail search query, e.g. "from:john@example.com" or "subject:deal"' },
+        max_results: { type: 'number', description: 'Max emails to return. Default is 10.' }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'send_email',
+    description: 'Send an email. Only use this after explicitly confirming the recipient, subject, and full body with the user.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        to: { type: 'string', description: 'Recipient email address' },
+        subject: { type: 'string', description: 'Email subject' },
+        body: { type: 'string', description: 'Email body text' }
+      },
+      required: ['to', 'subject', 'body']
+    }
+  }
+];
 
 const SYSTEM_PROMPT = `You are Nova, a witty and confident voice assistant. Your job is not just to complete tasks — it's to be genuinely useful, occasionally entertaining, and always honest.
 
@@ -47,6 +203,35 @@ const SYSTEM_PROMPT = `You are Nova, a witty and confident voice assistant. Your
 ## Speech mode
 - Always respond in natural spoken sentences. No markdown, no bullet points, no headers, no symbols like asterisks or dashes. Write exactly as you would speak it out loud.`;
 
+app.get('/auth/google', (req, res) => {
+  const url = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: [
+      'https://www.googleapis.com/auth/calendar',
+      'https://www.googleapis.com/auth/gmail.modify'
+    ],
+    prompt: 'consent'
+  });
+  res.redirect(url);
+});
+
+app.get('/auth/google/callback', async (req, res) => {
+  try {
+    const { code } = req.query;
+    const { tokens } = await oauth2Client.getToken(code);
+    await saveTokens(tokens);
+    res.send('<h2>Nova is now connected to your Google account.</h2><p>You can close this tab.</p>');
+  } catch (err) {
+    console.error('OAuth callback error:', err);
+    res.status(500).send('Something went wrong connecting to Google.');
+  }
+});
+
+app.get('/auth/status', async (req, res) => {
+  const tokens = await loadTokens();
+  res.json({ connected: !!tokens });
+});
+
 app.post('/chat', async (req, res) => {
   const { message, session_id } = req.body;
 
@@ -55,19 +240,70 @@ app.post('/chat', async (req, res) => {
     .select('role, content')
     .eq('session_id', session_id)
     .order('created_at', { ascending: true })
-    .limit(10);
+    .limit(20);
 
   const history = historyData || [];
-  const messages = [...history.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: message }];
+  let messages = [...history.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: message }];
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 1024,
-    system: SYSTEM_PROMPT,
-    messages
-  });
+  let reply = '';
 
-  const reply = response.content[0].text;
+  while (true) {
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      system: SYSTEM_PROMPT,
+      tools: TOOLS,
+      messages
+    });
+
+    if (response.stop_reason === 'end_turn') {
+      reply = response.content.find(b => b.type === 'text')?.text || '';
+      break;
+    }
+
+    if (response.stop_reason === 'tool_use') {
+      const toolBlock = response.content.find(b => b.type === 'tool_use');
+      const { name, id, input } = toolBlock;
+
+      let toolResult;
+      try {
+        if (name === 'get_calendar_events') {
+          const events = await getCalendarEvents(input.days_ahead || 7);
+          toolResult = events.length === 0
+            ? 'No upcoming events found.'
+            : events.map(e => {
+                const start = e.start.dateTime || e.start.date;
+                return `${e.summary} — ${start}${e.location ? ' at ' + e.location : ''}`;
+              }).join('\n');
+        } else if (name === 'create_calendar_event') {
+          const event = await createCalendarEvent(input.summary, input.start_datetime, input.end_datetime, input.description);
+          toolResult = `Event created: ${event.summary}`;
+        } else if (name === 'get_emails') {
+          const emails = await getEmails(input.query || '', input.max_results || 10);
+          toolResult = emails.length === 0
+            ? 'No emails found.'
+            : emails.map(e => `From: ${e.from}\nSubject: ${e.subject}\nDate: ${e.date}\n${e.snippet}`).join('\n\n');
+        } else if (name === 'send_email') {
+          await sendEmail(input.to, input.subject, input.body);
+          toolResult = `Email sent to ${input.to}.`;
+        } else {
+          toolResult = 'Unknown tool.';
+        }
+      } catch (err) {
+        toolResult = `Error: ${err.message}`;
+      }
+
+      messages = [
+        ...messages,
+        { role: 'assistant', content: response.content },
+        { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: toolResult }] }
+      ];
+      continue;
+    }
+
+    reply = response.content.find(b => b.type === 'text')?.text || 'Something went wrong.';
+    break;
+  }
 
   const now = new Date().toISOString();
   const { error: insertError } = await supabase.from('messages').insert([
