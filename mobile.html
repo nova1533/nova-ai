@@ -457,6 +457,7 @@ function App() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef   = useRef([]);
   const micStreamRef     = useRef(null);
+  const currentAudioRef  = useRef(null);
   const orbStateRef      = useRef('idle');
   useEffect(() => { orbStateRef.current = orbState; }, [orbState]);
 
@@ -500,6 +501,7 @@ function App() {
 
       const url  = URL.createObjectURL(blob);
       const audio = new Audio(url);
+      currentAudioRef.current = audio; // keep a persistent ref so GC doesn't kill it mid-playback
 
       audio.onloadedmetadata = () => console.log('[Nova] audio duration:', audio.duration);
       audio.oncanplay       = () => console.log('[Nova] audio canplay');
@@ -507,6 +509,7 @@ function App() {
       setOrbState('speaking');
 
       audio.onended = () => {
+        currentAudioRef.current = null;
         URL.revokeObjectURL(url);
         setOrbState('idle');
       };
