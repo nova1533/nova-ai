@@ -79,6 +79,15 @@ app.post('/chat', async (req, res) => {
   res.json({ reply });
 });
 
+/* ── Debug: check env vars are loaded ── */
+app.get('/debug-env', (req, res) => {
+  res.json({
+    elevenlabs_key_length: process.env.ELEVENLABS_API_KEY?.length || 0,
+    elevenlabs_key_start: process.env.ELEVENLABS_API_KEY?.substring(0, 5) || 'missing',
+    voice_id_set: !!process.env.ELEVENLABS_VOICE_ID
+  });
+});
+
 /* ── Speech to text (Deepgram) ── */
 app.post('/transcribe', upload.single('audio'), async (req, res) => {
   try {
