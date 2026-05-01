@@ -232,6 +232,65 @@ app.get('/auth/status', async (req, res) => {
   res.json({ connected: !!tokens });
 });
 
+app.get('/calendar/today', async (req, res) => {
+  try {
+    const tz = process.env.TIMEZONE || 'America/Chicago';
+    const auth = await getAuthClient();
+    const calendar = google.calendar({ version: 'v3', auth });
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const response = await calendar.events.list({
+      calendarId: 'primary',
+      timeMin: startOfDay.toISOString(),
+      timeMax: endOfDay.toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime',
+      maxResults: 20,
+      timeZone: tz
+    });
+
+    const now = Date.now();
+    const events = (response.data.items || []).map(e => {
+      const startRaw = e.start.dateTime || e.start.date;
+      const endRaw   = e.end.dateTime   || e.end.date;
+      const startMs  = new Date(startRaw).getTime();
+      const endMs    = new Date(endRaw).getTime();
+
+      const timeStr = e.start.dateTime
+        ? new Date(startRaw).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz })
+        : 'All day';
+
+      let status = '';
+      if (endMs < now)        status = 'done';
+      else if (startMs <= now) status = 'now';
+
+      const durationMin = Math.round((endMs - startMs) / 60000);
+      const durationStr = durationMin >= 60
+        ? `${Math.floor(durationMin / 60)}h${durationMin % 60 ? ' ' + (durationMin % 60) + 'm' : ''}`
+        : `${durationMin} min`;
+
+      const sub = [durationStr, e.location].filter(Boolean).join(' · ');
+
+      return {
+        time: timeStr,
+        title: e.summary || '(No title)',
+        sub: sub || null,
+        status,
+        tag:     status === 'now' ? 'Live' : null,
+        tagKind: status === 'now' ? 'live' : null
+      };
+    });
+
+    res.json({ events });
+  } catch (err) {
+    console.error('calendar/today error:', err.message);
+    res.json({ events: [] });
+  }
+});
+
 app.post('/chat', async (req, res) => {
   const { message, session_id } = req.body;
 

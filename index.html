@@ -772,14 +772,14 @@ function App() {
     { id: 4, name: 'Gym',             time: '6pm',  done: false, urgent: true  },
   ]);
 
-  const events = [
-    { time: '9:00',  title: 'Morning standup',      sub: '15 min · Engineering',    status: 'done' },
-    { time: '10:30', title: 'Design review',        sub: '45 min · with Maya, Jon', status: 'done' },
-    { time: '2:00',  title: 'Team sync',            sub: 'Now · 6 attendees',       tag: 'Live',  tagKind: 'live', status: 'now' },
-    { time: '3:30',  title: 'Focus block',          sub: '90 min · Client proposal',tag: 'Focus', tagKind: 'focus' },
-    { time: '5:00',  title: 'Client call',          sub: '30 min · Zoom' },
-    { time: '6:00',  title: 'Gym',                  sub: 'Strength · 60 min' },
-  ];
+  const [events, setEvents] = useState([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/calendar/today`)
+      .then(r => r.json())
+      .then(data => { if (data.events) setEvents(data.events); })
+      .catch(() => {});
+  }, []);
 
   const memory = [
     'Prefers short morning briefs',
