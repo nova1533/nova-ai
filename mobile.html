@@ -496,8 +496,13 @@ function App() {
       if (!res.ok) throw new Error('TTS failed');
 
       const blob = await res.blob();
+      console.log('[Nova] audio blob size:', blob.size, 'type:', blob.type);
+
       const url  = URL.createObjectURL(blob);
       const audio = new Audio(url);
+
+      audio.onloadedmetadata = () => console.log('[Nova] audio duration:', audio.duration);
+      audio.oncanplay       = () => console.log('[Nova] audio canplay');
 
       setOrbState('speaking');
 
@@ -506,12 +511,21 @@ function App() {
         setOrbState('idle');
       };
       audio.onerror = (e) => {
-        console.error('Audio playback error:', e);
+        const msg = audio.error ? `code ${audio.error.code}: ${audio.error.message}` : String(e);
+        console.error('[Nova] audio error:', msg);
+        setMessages(m => [...m, { who: 'nova', text: `[debug] audio error — ${msg}` }]);
         URL.revokeObjectURL(url);
         setOrbState('idle');
       };
 
-      await audio.play();
+      try {
+        await audio.play();
+        console.log('[Nova] audio.play() resolved — should be audible now');
+      } catch (playErr) {
+        console.error('[Nova] audio.play() rejected:', playErr.name, playErr.message);
+        setMessages(m => [...m, { who: 'nova', text: `[debug] play blocked — ${playErr.name}: ${playErr.message}` }]);
+        setOrbState('idle');
+      }
 
     } catch (err) {
       console.error('speakText error:', err);
