@@ -497,35 +497,44 @@ function App() {
       if (!res.ok) throw new Error('TTS failed');
 
       const blob = await res.blob();
-      console.log('[Nova] audio blob size:', blob.size, 'type:', blob.type);
 
-      const url  = URL.createObjectURL(blob);
+      // Always show debug info in transcript so we can diagnose
+      setMessages(m => [...m, { who: 'nova', text: `[debug] blob: ${blob.size} bytes, type: ${blob.type || 'unknown'}` }]);
+
+      if (blob.size === 0) {
+        setMessages(m => [...m, { who: 'nova', text: '[debug] blob is empty — ElevenLabs returned nothing' }]);
+        setOrbState('idle');
+        return;
+      }
+
+      const url   = URL.createObjectURL(blob);
       const audio = new Audio(url);
-      currentAudioRef.current = audio; // keep a persistent ref so GC doesn't kill it mid-playback
+      audio.playsInline = true;
+      currentAudioRef.current = audio;
 
-      audio.onloadedmetadata = () => console.log('[Nova] audio duration:', audio.duration);
-      audio.oncanplay       = () => console.log('[Nova] audio canplay');
+      audio.onloadedmetadata = () => {
+        setMessages(m => [...m, { who: 'nova', text: `[debug] duration: ${audio.duration.toFixed(2)}s` }]);
+      };
 
       setOrbState('speaking');
+      audio.load();
 
       audio.onended = () => {
         currentAudioRef.current = null;
         URL.revokeObjectURL(url);
         setOrbState('idle');
       };
-      audio.onerror = (e) => {
-        const msg = audio.error ? `code ${audio.error.code}: ${audio.error.message}` : String(e);
-        console.error('[Nova] audio error:', msg);
-        setMessages(m => [...m, { who: 'nova', text: `[debug] audio error — ${msg}` }]);
+      audio.onerror = () => {
+        const msg = audio.error ? `code ${audio.error.code}` : 'unknown';
+        setMessages(m => [...m, { who: 'nova', text: `[debug] audio element error: ${msg}` }]);
         URL.revokeObjectURL(url);
         setOrbState('idle');
       };
 
       try {
         await audio.play();
-        console.log('[Nova] audio.play() resolved — should be audible now');
+        setMessages(m => [...m, { who: 'nova', text: `[debug] play() resolved, paused: ${audio.paused}` }]);
       } catch (playErr) {
-        console.error('[Nova] audio.play() rejected:', playErr.name, playErr.message);
         setMessages(m => [...m, { who: 'nova', text: `[debug] play blocked — ${playErr.name}: ${playErr.message}` }]);
         setOrbState('idle');
       }
