@@ -482,7 +482,6 @@ function App() {
   }, []);
 
   const speakText = useCallback(async (text) => {
-    setMessages(m => [...m, { who: 'nova', text: '[debug] speakText started' }]);
     try {
       // Stop mic before playback — iOS routes audio to earpiece when mic is active
       if (micStreamRef.current) {
@@ -490,7 +489,6 @@ function App() {
         micStreamRef.current = null;
       }
 
-      setMessages(m => [...m, { who: 'nova', text: '[debug] fetching /speak...' }]);
       const res = await fetch(`${API_BASE}/speak`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -499,24 +497,12 @@ function App() {
       if (!res.ok) throw new Error('TTS failed');
 
       const blob = await res.blob();
-
-      // Always show debug info in transcript so we can diagnose
-      setMessages(m => [...m, { who: 'nova', text: `[debug] blob: ${blob.size} bytes, type: ${blob.type || 'unknown'}` }]);
-
-      if (blob.size === 0) {
-        setMessages(m => [...m, { who: 'nova', text: '[debug] blob is empty — ElevenLabs returned nothing' }]);
-        setOrbState('idle');
-        return;
-      }
+      if (blob.size === 0) { setOrbState('idle'); return; }
 
       const url   = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audio.playsInline = true;
       currentAudioRef.current = audio;
-
-      audio.onloadedmetadata = () => {
-        setMessages(m => [...m, { who: 'nova', text: `[debug] duration: ${audio.duration.toFixed(2)}s` }]);
-      };
 
       setOrbState('speaking');
       audio.load();
@@ -527,22 +513,15 @@ function App() {
         setOrbState('idle');
       };
       audio.onerror = () => {
-        const msg = audio.error ? `code ${audio.error.code}` : 'unknown';
-        setMessages(m => [...m, { who: 'nova', text: `[debug] audio element error: ${msg}` }]);
+        currentAudioRef.current = null;
         URL.revokeObjectURL(url);
         setOrbState('idle');
       };
 
-      try {
-        await audio.play();
-        setMessages(m => [...m, { who: 'nova', text: `[debug] play() resolved, paused: ${audio.paused}` }]);
-      } catch (playErr) {
-        setMessages(m => [...m, { who: 'nova', text: `[debug] play blocked — ${playErr.name}: ${playErr.message}` }]);
-        setOrbState('idle');
-      }
+      await audio.play();
 
     } catch (err) {
-      setMessages(m => [...m, { who: 'nova', text: `[debug] speakText threw: ${err.name} — ${err.message}` }]);
+      console.error('speakText error:', err);
       setOrbState('idle');
     }
   }, []);
