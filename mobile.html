@@ -465,12 +465,14 @@ function App() {
   const audioCtxRef = useRef(null);
 
   const unlockAudio = useCallback(() => {
-    // AudioContext: create and resume during the user gesture so it stays unlocked
-    // across async boundaries — critical for PWA standalone mode on iOS.
-    if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
-      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    // AudioContext: only create in PWA standalone mode — Safari browser uses plain Audio instead.
+    // navigator.standalone is true only when running as an installed PWA on iOS.
+    if (window.navigator.standalone) {
+      if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      audioCtxRef.current.resume().catch(() => {});
     }
-    audioCtxRef.current.resume().catch(() => {});
 
     // Also unlock a plain Audio element as fallback.
     // Clear any leftover handlers first — otherwise the silent clip's onended
