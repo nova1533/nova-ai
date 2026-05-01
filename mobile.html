@@ -359,11 +359,13 @@ function useVoiceEnvelope(ref, active) {
   }, [active, ref]);
 }
 
-function Orb({ state, onClick }) {
+function Orb({ state, onClick, orbRef }) {
   const wrapRef = useRef(null);
-  useVoiceEnvelope(wrapRef, state === 'speaking');
+  // Use real audio ref if provided, otherwise simulate
+  const activeRef = orbRef || wrapRef;
+  useVoiceEnvelope(activeRef, state === 'speaking' && !orbRef);
   return (
-    <div ref={wrapRef} className={`orb-wrap orb-dust ${state}`} onClick={onClick}>
+    <div ref={el => { wrapRef.current = el; if (orbRef) orbRef.current = el; }} className={`orb-wrap orb-dust ${state}`} onClick={onClick}>
       <OrbDust />
     </div>
   );
@@ -457,6 +459,52 @@ function App() {
   const orbStateRef      = useRef('idle');
   useEffect(() => { orbStateRef.current = orbState; }, [orbState]);
 
+  const orbWrapRef = useRef(null);
+
+  const speakText = useCallback(async (text) => {
+    try {
+      const res = await fetch(`${API_BASE}/speak`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      if (!res.ok) throw new Error('TTS failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+
+      // Wire real audio to orb voice envelope
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = ctx.createMediaElementSource(audio);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      analyser.connect(ctx.destination);
+      const buf = new Uint8Array(analyser.frequencyBinCount);
+
+      setOrbState('speaking');
+      audio.play();
+
+      const tick = () => {
+        if (audio.paused || audio.ended) {
+          if (orbWrapRef.current) orbWrapRef.current.style.setProperty('--voice-amp', '0');
+          setOrbState('idle');
+          URL.revokeObjectURL(url);
+          return;
+        }
+        analyser.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) sum += Math.abs(buf[i] - 128);
+        const amp = Math.min(1, (sum / buf.length) / 20);
+        if (orbWrapRef.current) orbWrapRef.current.style.setProperty('--voice-amp', amp.toFixed(3));
+        requestAnimationFrame(tick);
+      };
+      audio.addEventListener('play', () => requestAnimationFrame(tick));
+    } catch {
+      setOrbState('idle');
+    }
+  }, []);
+
   const sendMessage = useCallback(async (text) => {
     setMessages(m => [...m, { who: 'you', text }]);
     setIsThinking(true);
@@ -470,15 +518,13 @@ function App() {
       const data = await res.json();
       setMessages(m => [...m, { who: 'nova', text: data.reply }]);
       setIsThinking(false);
-      setOrbState('speaking');
-      const speakMs = Math.min(8000, Math.max(2200, data.reply.length * 55));
-      setTimeout(() => setOrbState('idle'), speakMs);
+      await speakText(data.reply);
     } catch {
       setMessages(m => [...m, { who: 'nova', text: 'Something went wrong. Please try again.' }]);
       setIsThinking(false);
       setOrbState('idle');
     }
-  }, []);
+  }, [speakText]);
 
   const startRecording = useCallback(async () => {
     if (orbStateRef.current !== 'idle') return;
@@ -541,7 +587,7 @@ function App() {
 
       <main className="main">
         <div className="main-inner">
-          <Orb state={orbState} onClick={toggleOrb} />
+          <Orb state={orbState} onClick={toggleOrb} orbRef={orbWrapRef} />
           <div className={`hint ${orbState}`}>{hint}</div>
           <InputBar onSend={sendMessage} disabled={orbState === 'thinking'} />
           <Transcript messages={messages} isThinking={isThinking} />
