@@ -459,7 +459,25 @@ function App() {
   const orbStateRef      = useRef('idle');
   useEffect(() => { orbStateRef.current = orbState; }, [orbState]);
 
-  const orbWrapRef = useRef(null);
+  const orbWrapRef  = useRef(null);
+  const audioCtxRef = useRef(null);
+
+  // iOS requires AudioContext to be created + a silent buffer played
+  // during a direct user gesture — we do this on every orb tap so it's
+  // already "unlocked" before the async fetch completes.
+  const unlockAudio = useCallback(() => {
+    if (audioCtxRef.current) {
+      if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
+      return;
+    }
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const silent = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = silent;
+    src.connect(ctx.destination);
+    src.start(0);
+    audioCtxRef.current = ctx;
+  }, []);
 
   const speakText = useCallback(async (text) => {
     try {
@@ -470,37 +488,46 @@ function App() {
       });
       if (!res.ok) throw new Error('TTS failed');
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const url  = URL.createObjectURL(blob);
       const audio = new Audio(url);
+      audio.playsInline = true;
 
-      // Wire real audio to orb voice envelope
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const source = ctx.createMediaElementSource(audio);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      source.connect(analyser);
-      analyser.connect(ctx.destination);
-      const buf = new Uint8Array(analyser.frequencyBinCount);
+      const ctx = audioCtxRef.current;
+      if (ctx) {
+        if (ctx.state === 'suspended') await ctx.resume();
+        const source  = ctx.createMediaElementSource(audio);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        analyser.connect(ctx.destination);
+        const buf = new Uint8Array(analyser.frequencyBinCount);
 
-      setOrbState('speaking');
-      audio.play();
+        setOrbState('speaking');
+        await audio.play();
 
-      const tick = () => {
-        if (audio.paused || audio.ended) {
-          if (orbWrapRef.current) orbWrapRef.current.style.setProperty('--voice-amp', '0');
-          setOrbState('idle');
-          URL.revokeObjectURL(url);
-          return;
-        }
-        analyser.getByteTimeDomainData(buf);
-        let sum = 0;
-        for (let i = 0; i < buf.length; i++) sum += Math.abs(buf[i] - 128);
-        const amp = Math.min(1, (sum / buf.length) / 20);
-        if (orbWrapRef.current) orbWrapRef.current.style.setProperty('--voice-amp', amp.toFixed(3));
+        const tick = () => {
+          if (audio.paused || audio.ended) {
+            if (orbWrapRef.current) orbWrapRef.current.style.setProperty('--voice-amp', '0');
+            setOrbState('idle');
+            URL.revokeObjectURL(url);
+            return;
+          }
+          analyser.getByteTimeDomainData(buf);
+          let sum = 0;
+          for (let i = 0; i < buf.length; i++) sum += Math.abs(buf[i] - 128);
+          const amp = Math.min(1, (sum / buf.length) / 20);
+          if (orbWrapRef.current) orbWrapRef.current.style.setProperty('--voice-amp', amp.toFixed(3));
+          requestAnimationFrame(tick);
+        };
         requestAnimationFrame(tick);
-      };
-      audio.addEventListener('play', () => requestAnimationFrame(tick));
-    } catch {
+      } else {
+        // Fallback: no AudioContext available
+        setOrbState('speaking');
+        await audio.play();
+        audio.onended = () => { setOrbState('idle'); URL.revokeObjectURL(url); };
+      }
+    } catch (err) {
+      console.error('speakText error:', err);
       setOrbState('idle');
     }
   }, []);
@@ -565,9 +592,10 @@ function App() {
   }, []);
 
   const toggleOrb = useCallback(() => {
+    unlockAudio(); // must happen during the user gesture, before any async work
     if (orbStateRef.current === 'idle') startRecording();
     else if (orbStateRef.current === 'listening') stopRecording();
-  }, [startRecording, stopRecording]);
+  }, [unlockAudio, startRecording, stopRecording]);
 
   const hint = orbState === 'listening' ? 'Listening… tap to send'
     : orbState === 'thinking'  ? 'Nova is thinking…'
