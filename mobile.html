@@ -462,15 +462,25 @@ function App() {
 
   const orbWrapRef  = useRef(null);
   const audioRef    = useRef(null);
+  const audioCtxRef = useRef(null);
 
-  // On every orb tap, play a silent clip through a persistent Audio element.
-  // iOS grants play permission to this element; we reuse it for real audio later.
   const unlockAudio = useCallback(() => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio();
+    // AudioContext: create and resume during the user gesture so it stays unlocked
+    // across async boundaries — critical for PWA standalone mode on iOS.
+    if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
     }
-    audioRef.current.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-    audioRef.current.play().catch(() => {});
+    audioCtxRef.current.resume().catch(() => {});
+
+    // Also unlock a plain Audio element as fallback.
+    // Clear any leftover handlers first — otherwise the silent clip's onended
+    // fires the previous speakText handler and snaps the orb back to idle mid-recording.
+    if (!audioRef.current) audioRef.current = new Audio();
+    const audio = audioRef.current;
+    audio.onended = null;
+    audio.onerror = null;
+    audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+    audio.play().catch(() => {});
   }, []);
 
   const speakText = useCallback(async (text) => {
@@ -489,19 +499,37 @@ function App() {
       });
       if (!res.ok) throw new Error('TTS failed');
 
-      const blob = await res.blob();
-      if (!blob.size) { setOrbState('idle'); return; }
-      const url = URL.createObjectURL(blob);
+      const arrayBuffer = await res.arrayBuffer();
+      if (!arrayBuffer.byteLength) { setOrbState('idle'); return; }
 
-      // Reuse the Audio element that was unlocked during the tap gesture
-      if (!audioRef.current) audioRef.current = new Audio();
-      const audio = audioRef.current;
-      audio.src = url;
-      audio.onended = () => { URL.revokeObjectURL(url); setOrbState('idle'); };
-      audio.onerror = () => { URL.revokeObjectURL(url); setOrbState('idle'); };
-      audio.load();
-      setOrbState('speaking');
-      await audio.play();
+      const ctx = audioCtxRef.current;
+      if (ctx && ctx.state !== 'closed') {
+        // AudioContext path — works in PWA because it stays unlocked after resume()
+        if (ctx.state === 'suspended') await ctx.resume();
+        // Wrap callback form for older iOS compatibility
+        const decoded = await new Promise((resolve, reject) =>
+          ctx.decodeAudioData(arrayBuffer, resolve, reject)
+        );
+        const source = ctx.createBufferSource();
+        source.buffer = decoded;
+        source.connect(ctx.destination);
+        setOrbState('speaking');
+        source.onended = () => setOrbState('idle');
+        source.start(0);
+      } else {
+        // Fallback: plain Audio element (no audio.load() — it resets iOS play permission)
+        const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+        const url = URL.createObjectURL(blob);
+        if (!audioRef.current) audioRef.current = new Audio();
+        const audio = audioRef.current;
+        audio.onended = null;
+        audio.onerror = null;
+        audio.src = url;
+        audio.onended = () => { URL.revokeObjectURL(url); setOrbState('idle'); };
+        audio.onerror = () => { URL.revokeObjectURL(url); setOrbState('idle'); };
+        setOrbState('speaking');
+        await audio.play();
+      }
 
     } catch (err) {
       console.error('speakText error:', err);
