@@ -446,6 +446,51 @@ function Transcript({ messages, isThinking }) {
   );
 }
 
+/* ── Conversation History ── */
+function ConversationHistory() {
+  const [convos, setConvos] = useState([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+
+  const loadConvos = (currentOffset) => {
+    fetch(`${API_BASE}/conversations?offset=${currentOffset}&limit=20`)
+      .then(r => r.json())
+      .then(data => {
+        setConvos(prev => currentOffset === 0 ? data.sessions : [...prev, ...data.sessions]);
+        setHasMore(data.hasMore);
+        setOffset(currentOffset + data.sessions.length);
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => { loadConvos(0); }, []);
+
+  const formatDate = (iso) => {
+    const d = new Date(iso);
+    const today = new Date();
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === today.toDateString()) return 'Today';
+    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  };
+
+  return (
+    <div style={{padding:'16px', overflowY:'auto', height:'100%'}}>
+      <div style={{fontSize:'11px', letterSpacing:'0.08em', color:'rgba(200,212,232,0.45)', marginBottom:'12px'}}>HISTORY</div>
+      {convos.length === 0 && <div style={{color:'rgba(200,212,232,0.4)', fontSize:'14px'}}>No conversations yet.</div>}
+      {convos.map(c => (
+        <div key={c.session_id} style={{padding:'10px 0', borderBottom:'1px solid rgba(55,138,221,0.08)'}}>
+          <div style={{fontSize:'13px', color:'#C8D4E8', marginBottom:'3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{c.preview}</div>
+          <div style={{fontSize:'11px', color:'rgba(200,212,232,0.4)'}}>{formatDate(c.created_at)}</div>
+        </div>
+      ))}
+      {hasMore && (
+        <div onClick={() => loadConvos(offset)} style={{marginTop:'12px', fontSize:'13px', color:'rgba(55,138,221,0.7)', cursor:'pointer', textAlign:'center'}}>Load more…</div>
+      )}
+    </div>
+  );
+}
+
 /* ── App ── */
 function App() {
   const [menuOpen, setMenuOpen]   = useState(false);
@@ -625,12 +670,16 @@ function App() {
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} active={activeNav} setActive={setActiveNav} />
 
       <main className="main">
-        <div className="main-inner">
-          <Orb state={orbState} onClick={toggleOrb} orbRef={orbWrapRef} />
-          <div className={`hint ${orbState}`}>{hint}</div>
-          <InputBar onSend={sendMessage} disabled={orbState === 'thinking'} />
-          <Transcript messages={messages} isThinking={isThinking} />
-        </div>
+        {activeNav === 'history' ? (
+          <ConversationHistory />
+        ) : (
+          <div className="main-inner">
+            <Orb state={orbState} onClick={toggleOrb} orbRef={orbWrapRef} />
+            <div className={`hint ${orbState}`}>{hint}</div>
+            <InputBar onSend={sendMessage} disabled={orbState === 'thinking'} />
+            <Transcript messages={messages} isThinking={isThinking} />
+          </div>
+        )}
       </main>
     </div>
   );

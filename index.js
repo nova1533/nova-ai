@@ -232,6 +232,41 @@ app.get('/auth/status', async (req, res) => {
   res.json({ connected: !!tokens });
 });
 
+app.get('/conversations', async (req, res) => {
+  try {
+    const offset = parseInt(req.query.offset) || 0;
+    const limit  = parseInt(req.query.limit)  || 20;
+
+    const { data } = await supabase
+      .from('messages')
+      .select('session_id, content, created_at')
+      .eq('role', 'user')
+      .order('created_at', { ascending: true });
+
+    const sessionMap = {};
+    for (const msg of data || []) {
+      if (!sessionMap[msg.session_id]) {
+        sessionMap[msg.session_id] = {
+          session_id: msg.session_id,
+          preview: msg.content.length > 60 ? msg.content.slice(0, 60) + '…' : msg.content,
+          created_at: msg.created_at
+        };
+      }
+    }
+
+    const sessions = Object.values(sessionMap)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    res.json({
+      sessions: sessions.slice(offset, offset + limit),
+      hasMore: sessions.length > offset + limit
+    });
+  } catch (err) {
+    console.error('conversations error:', err.message);
+    res.json({ sessions: [], hasMore: false });
+  }
+});
+
 app.get('/calendar/debug', async (req, res) => {
   try {
     const tz = process.env.TIMEZONE || 'America/Chicago';

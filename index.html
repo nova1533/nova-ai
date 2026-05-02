@@ -561,8 +561,33 @@ function Orb({ state, onClick }) {
 
 /* ───── Sidebar ───── */
 function Sidebar({ active, setActive }) {
-  const main = [{ id: 'home', label: 'Home' }, { id: 'dashboard', label: 'Dashboard' }, { id: 'memory', label: 'Memory' }];
-  const history = [{ id: 'yesterday', label: 'Yesterday' }, { id: 'thisweek', label: 'This week' }];
+  const main = [{ id: 'home', label: 'Home' }, { id: 'dashboard', label: 'Dashboard' }];
+  const [convos, setConvos] = useState([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+
+  const loadConvos = (currentOffset) => {
+    fetch(`${API_BASE}/conversations?offset=${currentOffset}&limit=20`)
+      .then(r => r.json())
+      .then(data => {
+        setConvos(prev => currentOffset === 0 ? data.sessions : [...prev, ...data.sessions]);
+        setHasMore(data.hasMore);
+        setOffset(currentOffset + data.sessions.length);
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => { loadConvos(0); }, []);
+
+  const formatDate = (iso) => {
+    const d = new Date(iso);
+    const today = new Date();
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === today.toDateString()) return 'Today';
+    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  };
+
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -577,13 +602,22 @@ function Sidebar({ active, setActive }) {
           </div>
         ))}
       </div>
-      <div className="nav-section">
+      <div className="nav-section" style={{flex:1, overflowY:'auto'}}>
         <div className="nav-label">HISTORY</div>
-        {history.map(item => (
-          <div key={item.id} className={`nav-item ${active === item.id ? 'active' : ''}`} onClick={() => setActive(item.id)}>
-            <span className="nav-dot"></span><span>{item.label}</span>
+        {convos.map(c => (
+          <div key={c.session_id} className="nav-item" title={c.preview}>
+            <span className="nav-dot"></span>
+            <span style={{flex:1, minWidth:0}}>
+              <span style={{display:'block', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{c.preview}</span>
+              <span style={{fontSize:'11px', opacity:0.45}}>{formatDate(c.created_at)}</span>
+            </span>
           </div>
         ))}
+        {hasMore && (
+          <div className="nav-item" onClick={() => loadConvos(offset)} style={{opacity:0.6, cursor:'pointer'}}>
+            <span className="nav-dot"></span><span>Load more…</span>
+          </div>
+        )}
       </div>
     </aside>
   );
@@ -971,7 +1005,6 @@ function App() {
       <aside className="right">
         <ScheduleCard events={events} />
         <TasksCard tasks={tasks} toggleTask={toggleTask} />
-        <MemoryCard items={memory} />
       </aside>
     </div>
   );
