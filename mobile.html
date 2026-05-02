@@ -463,6 +463,12 @@ function ConversationHistory() {
       .catch(() => {});
   };
 
+  const deleteConvo = (session_id) => {
+    fetch(`${API_BASE}/conversations/${session_id}`, { method: 'DELETE' })
+      .then(() => setConvos(prev => prev.filter(c => c.session_id !== session_id)))
+      .catch(() => {});
+  };
+
   useEffect(() => { loadConvos(0); }, []);
 
   const formatDate = (iso) => {
@@ -479,9 +485,12 @@ function ConversationHistory() {
       <div style={{fontSize:'11px', letterSpacing:'0.08em', color:'rgba(200,212,232,0.45)', marginBottom:'12px'}}>HISTORY</div>
       {convos.length === 0 && <div style={{color:'rgba(200,212,232,0.4)', fontSize:'14px'}}>No conversations yet.</div>}
       {convos.map(c => (
-        <div key={c.session_id} style={{padding:'10px 0', borderBottom:'1px solid rgba(55,138,221,0.08)'}}>
-          <div style={{fontSize:'13px', color:'#C8D4E8', marginBottom:'3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{c.preview}</div>
-          <div style={{fontSize:'11px', color:'rgba(200,212,232,0.4)'}}>{formatDate(c.created_at)}</div>
+        <div key={c.session_id} style={{display:'flex', alignItems:'center', padding:'10px 0', borderBottom:'1px solid rgba(55,138,221,0.08)'}}>
+          <div style={{flex:1, minWidth:0}}>
+            <div style={{fontSize:'13px', color:'#C8D4E8', marginBottom:'3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{c.preview}</div>
+            <div style={{fontSize:'11px', color:'rgba(200,212,232,0.4)'}}>{formatDate(c.created_at)}</div>
+          </div>
+          <span onClick={() => deleteConvo(c.session_id)} style={{marginLeft:'12px', opacity:0.35, fontSize:'14px', padding:'4px 6px', cursor:'pointer'}}>✕</span>
         </div>
       ))}
       {hasMore && (

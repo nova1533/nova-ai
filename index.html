@@ -561,7 +561,7 @@ function Orb({ state, onClick }) {
 
 /* ───── Sidebar ───── */
 function Sidebar({ active, setActive }) {
-  const main = [{ id: 'home', label: 'Home' }, { id: 'dashboard', label: 'Dashboard' }];
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [convos, setConvos] = useState([]);
   const [hasMore, setHasMore] = useState(false);
   const [offset, setOffset] = useState(0);
@@ -577,7 +577,16 @@ function Sidebar({ active, setActive }) {
       .catch(() => {});
   };
 
-  useEffect(() => { loadConvos(0); }, []);
+  const toggleHistory = () => {
+    if (!historyOpen && convos.length === 0) loadConvos(0);
+    setHistoryOpen(h => !h);
+  };
+
+  const deleteConvo = (session_id) => {
+    fetch(`${API_BASE}/conversations/${session_id}`, { method: 'DELETE' })
+      .then(() => setConvos(prev => prev.filter(c => c.session_id !== session_id)))
+      .catch(() => {});
+  };
 
   const formatDate = (iso) => {
     const d = new Date(iso);
@@ -594,28 +603,35 @@ function Sidebar({ active, setActive }) {
         <div className="brand-mark"></div>
         <div className="brand-name">Nova</div>
       </div>
-      <div className="nav-section">
-        <div className="nav-label">MAIN</div>
-        {main.map(item => (
-          <div key={item.id} className={`nav-item ${active === item.id ? 'active' : ''}`} onClick={() => setActive(item.id)}>
-            <span className="nav-dot"></span><span>{item.label}</span>
-          </div>
-        ))}
-      </div>
       <div className="nav-section" style={{flex:1, overflowY:'auto'}}>
-        <div className="nav-label">HISTORY</div>
-        {convos.map(c => (
-          <div key={c.session_id} className="nav-item" title={c.preview}>
-            <span className="nav-dot"></span>
-            <span style={{flex:1, minWidth:0}}>
-              <span style={{display:'block', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{c.preview}</span>
-              <span style={{fontSize:'11px', opacity:0.45}}>{formatDate(c.created_at)}</span>
-            </span>
-          </div>
-        ))}
-        {hasMore && (
-          <div className="nav-item" onClick={() => loadConvos(offset)} style={{opacity:0.6, cursor:'pointer'}}>
-            <span className="nav-dot"></span><span>Load more…</span>
+        <div className="nav-label">MAIN</div>
+        <div className={`nav-item ${active === 'home' ? 'active' : ''}`} onClick={() => setActive('home')}>
+          <span className="nav-dot"></span><span>Home</span>
+        </div>
+        <div className={`nav-item ${active === 'dashboard' ? 'active' : ''}`} onClick={() => setActive('dashboard')}>
+          <span className="nav-dot"></span><span>Dashboard</span>
+        </div>
+        <div className="nav-item" onClick={toggleHistory} style={{userSelect:'none'}}>
+          <span className="nav-dot"></span>
+          <span style={{flex:1}}>History</span>
+          <span style={{fontSize:'10px', opacity:0.45, marginLeft:'4px'}}>{historyOpen ? '▲' : '▼'}</span>
+        </div>
+        {historyOpen && (
+          <div style={{paddingLeft:'20px'}}>
+            {convos.map(c => (
+              <div key={c.session_id} className="nav-item" style={{gap:'6px'}} title={c.preview}>
+                <span style={{flex:1, minWidth:0}}>
+                  <span style={{display:'block', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontSize:'12px'}}>{c.preview}</span>
+                  <span style={{fontSize:'10px', opacity:0.45}}>{formatDate(c.created_at)}</span>
+                </span>
+                <span onClick={e => { e.stopPropagation(); deleteConvo(c.session_id); }} style={{opacity:0.35, cursor:'pointer', fontSize:'12px', padding:'0 2px'}} title="Delete">✕</span>
+              </div>
+            ))}
+            {hasMore && (
+              <div className="nav-item" onClick={() => loadConvos(offset)} style={{opacity:0.5, fontSize:'12px'}}>
+                <span className="nav-dot"></span><span>Load more…</span>
+              </div>
+            )}
           </div>
         )}
       </div>

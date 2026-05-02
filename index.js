@@ -232,6 +232,15 @@ app.get('/auth/status', async (req, res) => {
   res.json({ connected: !!tokens });
 });
 
+app.delete('/conversations/:session_id', async (req, res) => {
+  try {
+    await supabase.from('messages').delete().eq('session_id', req.params.session_id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/conversations', async (req, res) => {
   try {
     const offset = parseInt(req.query.offset) || 0;
