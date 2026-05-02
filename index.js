@@ -232,6 +232,18 @@ app.get('/auth/status', async (req, res) => {
   res.json({ connected: !!tokens });
 });
 
+app.get('/calendar/debug', async (req, res) => {
+  try {
+    const auth = await getAuthClient();
+    const calendar = google.calendar({ version: 'v3', auth });
+    const calListResponse = await calendar.calendarList.list({ minAccessRole: 'reader' });
+    const calendars = (calListResponse.data.items || []).map(c => ({ id: c.id, summary: c.summary, primary: c.primary || false }));
+    res.json({ calendars });
+  } catch (err) {
+    res.json({ error: err.message });
+  }
+});
+
 app.get('/calendar/today', async (req, res) => {
   try {
     const tz = process.env.TIMEZONE || 'America/Chicago';
