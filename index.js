@@ -234,11 +234,36 @@ app.get('/auth/status', async (req, res) => {
 
 app.get('/calendar/debug', async (req, res) => {
   try {
+    const tz = process.env.TIMEZONE || 'America/Chicago';
     const auth = await getAuthClient();
     const calendar = google.calendar({ version: 'v3', auth });
     const calListResponse = await calendar.calendarList.list({ minAccessRole: 'reader' });
-    const calendars = (calListResponse.data.items || []).map(c => ({ id: c.id, summary: c.summary, primary: c.primary || false }));
-    res.json({ calendars });
+    const calItems = calListResponse.data.items || [];
+
+    const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay   = new Date(); endOfDay.setHours(23, 59, 59, 999);
+
+    const result = await Promise.all(calItems.map(async c => {
+      try {
+        const r = await calendar.events.list({
+          calendarId: c.id,
+          timeMin: startOfDay.toISOString(),
+          timeMax: endOfDay.toISOString(),
+          singleEvents: true,
+          maxResults: 20,
+          timeZone: tz
+        });
+        return {
+          calendar: c.summary,
+          eventCount: (r.data.items || []).length,
+          events: (r.data.items || []).map(e => ({ title: e.summary, start: e.start.dateTime || e.start.date, status: e.status }))
+        };
+      } catch (err) {
+        return { calendar: c.summary, error: err.message };
+      }
+    }));
+
+    res.json(result);
   } catch (err) {
     res.json({ error: err.message });
   }
