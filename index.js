@@ -237,7 +237,7 @@ app.get('/calendar/debug', async (req, res) => {
     const tz = process.env.TIMEZONE || 'America/Chicago';
     const auth = await getAuthClient();
     const calendar = google.calendar({ version: 'v3', auth });
-    const calListResponse = await calendar.calendarList.list({ minAccessRole: 'reader' });
+    const calListResponse = await calendar.calendarList.list({ showHidden: true });
     const calItems = calListResponse.data.items || [];
 
     const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
