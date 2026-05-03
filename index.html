@@ -726,12 +726,14 @@ function TasksCard({ tasks, toggleTask }) {
 }
 
 /* ───── Schedule ───── */
-function ScheduleCard({ events }) {
-  const today = new Date().toLocaleDateString([], { weekday: 'long' });
-  const dateStr = new Date().toLocaleDateString([], { month: 'short', day: 'numeric' });
+function ScheduleCard({ events, label }) {
+  const offset = label === 'TOMORROW' ? 1 : 0;
+  const d = new Date(); d.setDate(d.getDate() + offset);
+  const today = d.toLocaleDateString([], { weekday: 'long' });
+  const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
   return (
     <div>
-      <div className="panel-label"><span>SCHEDULE</span><span className="panel-meta">{events.length} events</span></div>
+      <div className="panel-label"><span>{label || 'TODAY'}</span><span className="panel-meta">{events.length} events</span></div>
       <div className="card sched-card">
         <div className="sched-day">
           <div className="sched-day-name">{today}</div>
@@ -818,54 +820,61 @@ function App() {
   // Keep ref in sync with state for use in event handlers
   useEffect(() => { orbStateRef.current = orbState; }, [orbState]);
 
-  const [tasks, setTasks] = useState([
-    { id: 1, name: 'Morning standup', time: '9am',  done: true,  urgent: false },
-    { id: 2, name: 'Client proposal', time: '5pm',  done: false, urgent: true  },
-    { id: 3, name: 'Team sync',       time: '2pm',  done: false, urgent: false },
-    { id: 4, name: 'Gym',             time: '6pm',  done: false, urgent: true  },
-  ]);
-
   const [events, setEvents] = useState([]);
+  const [tomorrowEvents, setTomorrowEvents] = useState([]);
 
   useEffect(() => {
     fetch(`${API_BASE}/calendar/today`)
-      .then(r => r.json())
-      .then(data => { if (data.events) setEvents(data.events); })
-      .catch(() => {});
+      .then(r => r.json()).then(data => { if (data.events) setEvents(data.events); }).catch(() => {});
+    fetch(`${API_BASE}/calendar/tomorrow`)
+      .then(r => r.json()).then(data => { if (data.events) setTomorrowEvents(data.events); }).catch(() => {});
   }, []);
 
-  const memory = [
-    'Prefers short morning briefs',
-    'Client proposal is for Meridian Corp',
-    'Gym goal: 4x per week',
-  ];
+  const speakTokenRef = useRef(null);
 
-  const toggleTask = id => setTasks(ts => ts.map(t => t.id === id ? { ...t, done: !t.done } : t));
-
-  /* ── Text to speech ── */
+  /* ── Text to speech (sentence-by-sentence) ── */
   const speakText = useCallback(async (text) => {
-    try {
-      const res = await fetch(`${API_BASE}/speak`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
+    const token = Date.now();
+    speakTokenRef.current = token;
+
+    const sentences = text.replace(/([.!?])\s+/g, '$1\n').split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    if (!sentences.length) return;
+
+    const fetchAudio = async (sentence) => {
+      try {
+        const res = await fetch(`${API_BASE}/speak`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: sentence })
+        });
+        if (!res.ok) return null;
+        const blob = await res.blob();
+        return blob.size ? URL.createObjectURL(blob) : null;
+      } catch { return null; }
+    };
+
+    setOrbState('speaking');
+    setStatusLabel('Speaking…');
+    if (!audioRef.current) audioRef.current = new Audio();
+
+    let nextPromise = fetchAudio(sentences[0]);
+
+    for (let i = 0; i < sentences.length; i++) {
+      if (speakTokenRef.current !== token) break;
+      const url = await nextPromise;
+      if (i + 1 < sentences.length) nextPromise = fetchAudio(sentences[i + 1]);
+      if (!url || speakTokenRef.current !== token) { if (url) URL.revokeObjectURL(url); break; }
+
+      await new Promise(resolve => {
+        const audio = audioRef.current;
+        audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+        audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+        audio.src = url;
+        audio.play().catch(() => resolve());
       });
-      if (!res.ok) throw new Error('TTS failed');
-      const blob = await res.blob();
-      if (!blob.size) { setOrbState('idle'); setStatusLabel('Nova online'); return; }
-      const url = URL.createObjectURL(blob);
-      if (!audioRef.current) audioRef.current = new Audio();
-      const audio = audioRef.current;
-      audio.onended = null;
-      audio.onerror = null;
-      audio.src = url;
-      audio.onended = () => { URL.revokeObjectURL(url); setOrbState('idle'); setStatusLabel('Nova online'); };
-      audio.onerror = () => { URL.revokeObjectURL(url); setOrbState('idle'); setStatusLabel('Nova online'); };
-      setOrbState('speaking');
-      setStatusLabel('Speaking…');
-      await audio.play();
-    } catch (err) {
-      console.error('speakText error:', err);
+    }
+
+    if (speakTokenRef.current === token) {
       setOrbState('idle');
       setStatusLabel('Nova online');
     }
@@ -945,12 +954,9 @@ function App() {
   }, []);
 
   const stopSpeaking = useCallback(() => {
+    speakTokenRef.current = null;
     const audio = audioRef.current;
-    if (audio) {
-      audio.pause();
-      audio.onended = null;
-      audio.onerror = null;
-    }
+    if (audio) { audio.pause(); audio.onended = null; audio.onerror = null; }
     setOrbState('idle');
     setStatusLabel('Nova online');
   }, []);
@@ -1023,7 +1029,7 @@ function App() {
 
       <aside className="right">
         <ScheduleCard events={events} />
-        <TasksCard tasks={tasks} toggleTask={toggleTask} />
+        <ScheduleCard events={tomorrowEvents} label="TOMORROW" />
       </aside>
     </div>
   );

@@ -386,6 +386,58 @@ app.get('/calendar/today', async (req, res) => {
   }
 });
 
+app.get('/calendar/tomorrow', async (req, res) => {
+  try {
+    const tz = process.env.TIMEZONE || 'America/Chicago';
+    const auth = await getAuthClient();
+    const calendar = google.calendar({ version: 'v3', auth });
+    const startOfDay = new Date(); startOfDay.setDate(startOfDay.getDate() + 1); startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay   = new Date(); endOfDay.setDate(endOfDay.getDate() + 1);     endOfDay.setHours(23, 59, 59, 999);
+
+    const calListResponse = await calendar.calendarList.list({ minAccessRole: 'reader' });
+    const calendarIds = (calListResponse.data.items || []).map(c => c.id);
+
+    const allItems = (await Promise.all(calendarIds.map(async calId => {
+      try {
+        const r = await calendar.events.list({
+          calendarId: calId,
+          timeMin: startOfDay.toISOString(),
+          timeMax: endOfDay.toISOString(),
+          singleEvents: true,
+          maxResults: 20,
+          timeZone: tz
+        });
+        return r.data.items || [];
+      } catch { return []; }
+    }))).flat();
+
+    const seen = new Set();
+    const events = allItems
+      .filter(e => { if (seen.has(e.id)) return false; seen.add(e.id); return true; })
+      .map(e => {
+        const startRaw = e.start.dateTime || e.start.date;
+        const endRaw   = e.end.dateTime   || e.end.date;
+        const startMs  = new Date(startRaw).getTime();
+        const endMs    = new Date(endRaw).getTime();
+        const timeStr  = e.start.dateTime
+          ? new Date(startRaw).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz })
+          : 'All day';
+        const durationMin = Math.round((endMs - startMs) / 60000);
+        const durationStr = durationMin >= 60
+          ? `${Math.floor(durationMin / 60)}h${durationMin % 60 ? ' ' + (durationMin % 60) + 'm' : ''}`
+          : `${durationMin} min`;
+        return { time: timeStr, title: e.summary || '(No title)', sub: [durationStr, e.location].filter(Boolean).join(' · ') || null, startMs };
+      })
+      .sort((a, b) => a.startMs - b.startMs)
+      .map(({ startMs, ...e }) => e);
+
+    res.json({ events });
+  } catch (err) {
+    console.error('calendar/tomorrow error:', err.message);
+    res.json({ events: [] });
+  }
+});
+
 app.post('/chat', async (req, res) => {
   const { message, session_id } = req.body;
 
