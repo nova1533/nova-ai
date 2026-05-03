@@ -832,79 +832,129 @@ function App() {
       .then(r => r.json()).then(data => { if (data.events) setTomorrowEvents(data.events); }).catch(() => {});
   }, []);
 
-  const speakTokenRef = useRef(null);
+  const speakTokenRef = useRef(0);
+  const audioQueueRef = useRef([]);
+  const isPlayingRef  = useRef(false);
+  const streamDoneRef = useRef(false);
 
-  /* ── Text to speech (sentence-by-sentence) ── */
-  const speakText = useCallback(async (text) => {
-    const token = Date.now();
-    speakTokenRef.current = token;
+  const stopSpeakingEarly = () => {
+    speakTokenRef.current++;
+    audioQueueRef.current = [];
+    isPlayingRef.current = false;
+    const audio = audioRef.current;
+    if (audio) { audio.pause(); audio.onended = null; audio.onerror = null; }
+    setOrbState('idle');
+    setStatusLabel('Nova online');
+  };
 
-    const sentences = text.replace(/([.!?])\s+/g, '$1\n').split('\n').map(s => s.trim()).filter(s => s.length > 0);
-    if (!sentences.length) return;
+  /* ── Send text message to Nova (streaming) ── */
+  const sendMessage = useCallback(async (text) => {
+    setMessages(m => [...m, { who: 'you', text }]);
+    setIsThinking(true);
+    setOrbState('thinking');
+    setStatusLabel('Thinking…');
 
-    const fetchAudio = async (sentence) => {
+    const token = ++speakTokenRef.current;
+    audioQueueRef.current = [];
+    isPlayingRef.current = false;
+    streamDoneRef.current = false;
+
+    const checkDone = () => {
+      if (speakTokenRef.current === token && streamDoneRef.current && !isPlayingRef.current && audioQueueRef.current.length === 0) {
+        setOrbState('idle');
+        setStatusLabel('Nova online');
+      }
+    };
+
+    const playNext = () => {
+      if (speakTokenRef.current !== token || audioQueueRef.current.length === 0) {
+        isPlayingRef.current = false;
+        checkDone();
+        return;
+      }
+      isPlayingRef.current = true;
+      setOrbState('speaking');
+      setStatusLabel('Speaking…');
+      const url = audioQueueRef.current.shift();
+      if (!audioRef.current) audioRef.current = new Audio();
+      const audio = audioRef.current;
+      audio.onended = () => { URL.revokeObjectURL(url); playNext(); };
+      audio.onerror = () => { URL.revokeObjectURL(url); playNext(); };
+      audio.src = url;
+      audio.play().catch(() => { isPlayingRef.current = false; playNext(); });
+    };
+
+    const enqueueSentence = async (sentence) => {
+      if (speakTokenRef.current !== token) return;
       try {
         const res = await fetch(`${API_BASE}/speak`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: sentence })
         });
-        if (!res.ok) return null;
+        if (!res.ok) return;
         const blob = await res.blob();
-        return blob.size ? URL.createObjectURL(blob) : null;
-      } catch { return null; }
+        if (!blob.size || speakTokenRef.current !== token) return;
+        audioQueueRef.current.push(URL.createObjectURL(blob));
+        if (!isPlayingRef.current) playNext();
+      } catch {}
     };
 
-    setOrbState('speaking');
-    setStatusLabel('Speaking…');
-    if (!audioRef.current) audioRef.current = new Audio();
-
-    let nextPromise = fetchAudio(sentences[0]);
-
-    for (let i = 0; i < sentences.length; i++) {
-      if (speakTokenRef.current !== token) break;
-      const url = await nextPromise;
-      if (i + 1 < sentences.length) nextPromise = fetchAudio(sentences[i + 1]);
-      if (!url || speakTokenRef.current !== token) { if (url) URL.revokeObjectURL(url); break; }
-
-      await new Promise(resolve => {
-        const audio = audioRef.current;
-        audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
-        audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
-        audio.src = url;
-        audio.play().catch(() => resolve());
-      });
-    }
-
-    if (speakTokenRef.current === token) {
-      setOrbState('idle');
-      setStatusLabel('Nova online');
-    }
-  }, []);
-
-  /* ── Send text message to Nova ── */
-  const sendMessage = useCallback(async (text) => {
-    setMessages(m => [...m, { who: 'you', text }]);
-    setIsThinking(true);
-    setOrbState('thinking');
-    setStatusLabel('Thinking…');
     try {
-      const res = await fetch(`${API_BASE}/chat`, {
+      const response = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, session_id: SESSION_ID })
       });
-      const data = await res.json();
-      setMessages(m => [...m, { who: 'nova', text: data.reply }]);
-      setIsThinking(false);
-      await speakText(data.reply);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let sseBuffer = '';
+      let novaText = '';
+      let firstText = true;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          let data;
+          try { data = JSON.parse(line.slice(6)); } catch { continue; }
+
+          if (data.type === 'text') {
+            novaText += data.value;
+            if (firstText) {
+              firstText = false;
+              setIsThinking(false);
+              setMessages(m => [...m, { who: 'nova', text: novaText }]);
+            } else {
+              setMessages(m => { const msgs = [...m]; msgs[msgs.length - 1] = { who: 'nova', text: novaText }; return msgs; });
+            }
+          }
+          if (data.type === 'sentence') enqueueSentence(data.value);
+          if (data.type === 'error') {
+            setMessages(m => [...m, { who: 'nova', text: data.value }]);
+            setIsThinking(false);
+            setOrbState('idle');
+            setStatusLabel('Nova online');
+          }
+        }
+      }
+
+      streamDoneRef.current = true;
+      checkDone();
     } catch (err) {
+      console.error('sendMessage error:', err);
       setMessages(m => [...m, { who: 'nova', text: 'Something went wrong. Please try again.' }]);
       setIsThinking(false);
       setOrbState('idle');
       setStatusLabel('Nova online');
     }
-  }, [speakText]);
+  }, []);
 
   /* ── Voice recording ── */
   const startRecording = useCallback(async () => {
@@ -955,13 +1005,7 @@ function App() {
     }
   }, []);
 
-  const stopSpeaking = useCallback(() => {
-    speakTokenRef.current = null;
-    const audio = audioRef.current;
-    if (audio) { audio.pause(); audio.onended = null; audio.onerror = null; }
-    setOrbState('idle');
-    setStatusLabel('Nova online');
-  }, []);
+  const stopSpeaking = useCallback(() => { stopSpeakingEarly(); }, []);
 
   const toggleOrb = useCallback(() => {
     if (orbStateRef.current === 'idle') startRecording();

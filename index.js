@@ -441,89 +441,109 @@ app.get('/calendar/tomorrow', async (req, res) => {
 app.post('/chat', async (req, res) => {
   const { message, session_id } = req.body;
 
-  const { data: historyData } = await supabase
-    .from('messages')
-    .select('role, content')
-    .eq('session_id', session_id)
-    .order('created_at', { ascending: true })
-    .limit(20);
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  const send = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
 
-  const history = historyData || [];
-  let messages = [...history.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: message }];
+  try {
+    const { data: historyData } = await supabase
+      .from('messages')
+      .select('role, content')
+      .eq('session_id', session_id)
+      .order('created_at', { ascending: true })
+      .limit(20);
 
-  let reply = '';
+    const history = historyData || [];
+    let messages = [...history.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: message }];
 
-  const nowDate = new Date();
-  const dateStr = nowDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: process.env.TIMEZONE || 'America/Chicago' });
-  const timeStr = nowDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: process.env.TIMEZONE || 'America/Chicago' });
-  const systemWithDate = `Today is ${dateStr}. The current time is ${timeStr}.\n\n${SYSTEM_PROMPT}`;
+    const nowDate = new Date();
+    const dateStr = nowDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: process.env.TIMEZONE || 'America/Chicago' });
+    const timeStr = nowDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: process.env.TIMEZONE || 'America/Chicago' });
+    const systemWithDate = `Today is ${dateStr}. The current time is ${timeStr}.\n\n${SYSTEM_PROMPT}`;
 
-  while (true) {
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
-      system: systemWithDate,
-      tools: TOOLS,
-      messages
-    });
+    let fullReply = '';
+    let sentenceBuffer = '';
 
-    if (response.stop_reason === 'end_turn') {
-      reply = response.content.find(b => b.type === 'text')?.text || '';
+    const flushSentences = (final = false) => {
+      const parts = sentenceBuffer.replace(/([.!?])\s+/g, '$1\n').split('\n');
+      const count = final ? parts.length : parts.length - 1;
+      for (let i = 0; i < count; i++) {
+        const s = parts[i].trim();
+        if (s) send({ type: 'sentence', value: s });
+      }
+      sentenceBuffer = final ? '' : (parts[parts.length - 1] || '');
+    };
+
+    while (true) {
+      const stream = client.messages.stream({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: systemWithDate,
+        tools: TOOLS,
+        messages
+      });
+
+      let hasText = false;
+      stream.on('text', (text) => {
+        hasText = true;
+        fullReply += text;
+        sentenceBuffer += text;
+        send({ type: 'text', value: text });
+        flushSentences(false);
+      });
+
+      const finalMsg = await stream.finalMessage();
+      if (hasText) flushSentences(true);
+
+      if (finalMsg.stop_reason === 'tool_use') {
+        const toolResults = [];
+        for (const block of finalMsg.content.filter(b => b.type === 'tool_use')) {
+          let result;
+          try {
+            if (block.name === 'get_calendar_events') {
+              const events = await getCalendarEvents(block.input.days_ahead || 7);
+              result = events.length === 0 ? 'No upcoming events found.'
+                : events.map(e => `${e.summary} — ${e.start.dateTime || e.start.date}${e.location ? ' at ' + e.location : ''}`).join('\n');
+            } else if (block.name === 'create_calendar_event') {
+              const ev = await createCalendarEvent(block.input.summary, block.input.start_datetime, block.input.end_datetime, block.input.description);
+              result = `Event created: ${ev.summary}`;
+            } else if (block.name === 'get_emails') {
+              const emails = await getEmails(block.input.query || '', block.input.max_results || 10);
+              result = emails.length === 0 ? 'No emails found.'
+                : emails.map(e => `From: ${e.from}\nSubject: ${e.subject}\nDate: ${e.date}\n${e.snippet}`).join('\n\n');
+            } else if (block.name === 'send_email') {
+              await sendEmail(block.input.to, block.input.subject, block.input.body);
+              result = `Email sent to ${block.input.to}.`;
+            } else {
+              result = 'Unknown tool.';
+            }
+          } catch (err) { result = `Error: ${err.message}`; }
+          toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result });
+        }
+        messages = [
+          ...messages,
+          { role: 'assistant', content: finalMsg.content },
+          { role: 'user', content: toolResults }
+        ];
+        continue;
+      }
       break;
     }
 
-    if (response.stop_reason === 'tool_use') {
-      const toolBlock = response.content.find(b => b.type === 'tool_use');
-      const { name, id, input } = toolBlock;
+    send({ type: 'done' });
+    res.end();
 
-      let toolResult;
-      try {
-        if (name === 'get_calendar_events') {
-          const events = await getCalendarEvents(input.days_ahead || 7);
-          toolResult = events.length === 0
-            ? 'No upcoming events found.'
-            : events.map(e => {
-                const start = e.start.dateTime || e.start.date;
-                return `${e.summary} — ${start}${e.location ? ' at ' + e.location : ''}`;
-              }).join('\n');
-        } else if (name === 'create_calendar_event') {
-          const event = await createCalendarEvent(input.summary, input.start_datetime, input.end_datetime, input.description);
-          toolResult = `Event created: ${event.summary}`;
-        } else if (name === 'get_emails') {
-          const emails = await getEmails(input.query || '', input.max_results || 10);
-          toolResult = emails.length === 0
-            ? 'No emails found.'
-            : emails.map(e => `From: ${e.from}\nSubject: ${e.subject}\nDate: ${e.date}\n${e.snippet}`).join('\n\n');
-        } else if (name === 'send_email') {
-          await sendEmail(input.to, input.subject, input.body);
-          toolResult = `Email sent to ${input.to}.`;
-        } else {
-          toolResult = 'Unknown tool.';
-        }
-      } catch (err) {
-        toolResult = `Error: ${err.message}`;
-      }
-
-      messages = [
-        ...messages,
-        { role: 'assistant', content: response.content },
-        { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: toolResult }] }
-      ];
-      continue;
-    }
-
-    reply = response.content.find(b => b.type === 'text')?.text || 'Something went wrong.';
-    break;
+    const now = new Date().toISOString();
+    await supabase.from('messages').insert([
+      { session_id, role: 'user', content: message, created_at: now },
+      { session_id, role: 'assistant', content: fullReply, created_at: new Date(Date.now() + 1).toISOString() }
+    ]);
+  } catch (err) {
+    console.error('Chat error:', err);
+    send({ type: 'error', value: 'Something went wrong.' });
+    res.end();
   }
-
-  const now = new Date().toISOString();
-  const { error: insertError } = await supabase.from('messages').insert([
-    { session_id, role: 'user', content: message, created_at: now },
-    { session_id, role: 'assistant', content: reply, created_at: new Date(Date.now() + 1).toISOString() }
-  ]);
-  if (insertError) console.error('Supabase insert error:', insertError);
-
-  res.json({ reply });
 });
 
 /* ── Debug: check env vars are loaded ── */
