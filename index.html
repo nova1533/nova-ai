@@ -1119,9 +1119,9 @@ function App() {
       </main>
 
       <aside className="right">
+        <TasksCard lists={taskLists} onComplete={handleTaskComplete} />
         <ScheduleCard events={events} />
         <ScheduleCard events={tomorrowEvents} label="TOMORROW" />
-        <TasksCard lists={taskLists} onComplete={handleTaskComplete} />
       </aside>
     </div>
   );
