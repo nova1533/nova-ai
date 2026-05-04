@@ -313,15 +313,28 @@ app.get('/calendar/debug', async (req, res) => {
   }
 });
 
+function getDayBoundsInTZ(tz, offsetDays = 0) {
+  const now = new Date();
+  const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now);
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const noonUTC = new Date(Date.UTC(year, month - 1, day + offsetDays, 12, 0, 0));
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(noonUTC);
+  const tzName = parts.find(p => p.type === 'timeZoneName').value;
+  const m = tzName.match(/GMT([+-])(\d+)(?::(\d+))?/);
+  const sign = m && m[1] === '+' ? 1 : -1;
+  const offsetMs = m ? sign * (parseInt(m[2]) * 60 + parseInt(m[3] || 0)) * 60000 : 0;
+  return {
+    startOfDay: new Date(Date.UTC(year, month - 1, day + offsetDays, 0, 0, 0) - offsetMs),
+    endOfDay:   new Date(Date.UTC(year, month - 1, day + offsetDays, 23, 59, 59, 999) - offsetMs),
+  };
+}
+
 app.get('/calendar/today', async (req, res) => {
   try {
     const tz = process.env.TIMEZONE || 'America/Chicago';
     const auth = await getAuthClient();
     const calendar = google.calendar({ version: 'v3', auth });
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
+    const { startOfDay, endOfDay } = getDayBoundsInTZ(tz, 0);
 
     const calListResponse = await calendar.calendarList.list({ minAccessRole: 'reader' });
     const calendarIds = (calListResponse.data.items || []).map(c => c.id);
@@ -391,8 +404,7 @@ app.get('/calendar/tomorrow', async (req, res) => {
     const tz = process.env.TIMEZONE || 'America/Chicago';
     const auth = await getAuthClient();
     const calendar = google.calendar({ version: 'v3', auth });
-    const startOfDay = new Date(); startOfDay.setDate(startOfDay.getDate() + 1); startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay   = new Date(); endOfDay.setDate(endOfDay.getDate() + 1);     endOfDay.setHours(23, 59, 59, 999);
+    const { startOfDay, endOfDay } = getDayBoundsInTZ(tz, 1);
 
     const calListResponse = await calendar.calendarList.list({ minAccessRole: 'reader' });
     const calendarIds = (calListResponse.data.items || []).map(c => c.id);
