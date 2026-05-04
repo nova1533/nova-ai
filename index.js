@@ -208,7 +208,8 @@ app.get('/auth/google', (req, res) => {
     access_type: 'offline',
     scope: [
       'https://www.googleapis.com/auth/calendar',
-      'https://www.googleapis.com/auth/gmail.modify'
+      'https://www.googleapis.com/auth/gmail.modify',
+      'https://www.googleapis.com/auth/tasks'
     ],
     prompt: 'consent'
   });
@@ -447,6 +448,71 @@ app.get('/calendar/tomorrow', async (req, res) => {
   } catch (err) {
     console.error('calendar/tomorrow error:', err.message);
     res.json({ events: [] });
+  }
+});
+
+app.get('/tasks', async (req, res) => {
+  try {
+    const auth = await getAuthClient();
+    const tasksApi = google.tasks({ version: 'v1', auth });
+    const tz = process.env.TIMEZONE || 'America/Chicago';
+
+    const listRes = await tasksApi.tasklists.list({ maxResults: 20 });
+    const taskLists = listRes.data.items || [];
+
+    const lists = (await Promise.all(taskLists.map(async list => {
+      try {
+        const taskRes = await tasksApi.tasks.list({
+          tasklist: list.id,
+          showCompleted: false,
+          showHidden: false,
+          maxResults: 100
+        });
+        const tasks = (taskRes.data.items || [])
+          .filter(t => t.status !== 'completed')
+          .map(t => {
+            let dueStr = null;
+            if (t.due) {
+              const due = new Date(t.due);
+              const today = new Date();
+              const tomorrow = new Date();
+              today.setHours(0, 0, 0, 0);
+              tomorrow.setDate(tomorrow.getDate() + 1);
+              tomorrow.setHours(0, 0, 0, 0);
+              const dueDay = new Date(due);
+              dueDay.setHours(0, 0, 0, 0);
+              if (dueDay.getTime() === today.getTime()) dueStr = 'Due today';
+              else if (dueDay.getTime() === tomorrow.getTime()) dueStr = 'Due tomorrow';
+              else if (dueDay < today) dueStr = 'Overdue';
+              else dueStr = 'Due ' + due.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: tz });
+            }
+            return { id: t.id, title: t.title, due: dueStr, notes: t.notes || null };
+          });
+        if (tasks.length === 0) return null;
+        return { id: list.id, title: list.title, tasks };
+      } catch { return null; }
+    }))).filter(Boolean);
+
+    res.json({ lists });
+  } catch (err) {
+    console.error('tasks error:', err.message);
+    res.json({ lists: [] });
+  }
+});
+
+app.post('/tasks/:listId/:taskId/complete', async (req, res) => {
+  try {
+    const auth = await getAuthClient();
+    const tasksApi = google.tasks({ version: 'v1', auth });
+    await tasksApi.tasks.patch({
+      tasklist: req.params.listId,
+      task: req.params.taskId,
+      requestBody: { status: 'completed' }
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('tasks/complete error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 

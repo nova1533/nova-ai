@@ -479,6 +479,56 @@ function ScheduleView() {
   );
 }
 
+/* ── Tasks View ── */
+function TasksView() {
+  const [lists, setLists] = useState([]);
+  const [completing, setCompleting] = useState({});
+
+  useEffect(() => {
+    fetch(`${API_BASE}/tasks`).then(r => r.json()).then(d => { if (d.lists) setLists(d.lists); }).catch(() => {});
+  }, []);
+
+  const handleComplete = async (listId, taskId) => {
+    setCompleting(c => ({ ...c, [taskId]: true }));
+    try {
+      await fetch(`${API_BASE}/tasks/${listId}/${taskId}/complete`, { method: 'POST' });
+      setLists(prev => prev.map(l => l.id !== listId ? l : {
+        ...l, tasks: l.tasks.filter(t => t.id !== taskId)
+      }).filter(l => l.tasks.length > 0));
+    } catch { setCompleting(c => ({ ...c, [taskId]: false })); }
+  };
+
+  const dueColor = (due) => {
+    if (due === 'Overdue') return 'rgba(255,200,60,0.9)';
+    if (due === 'Due today') return 'rgba(55,138,221,0.9)';
+    return 'rgba(200,212,232,0.4)';
+  };
+
+  if (lists.length === 0) return (
+    <div style={{padding:'16px', color:'rgba(200,212,232,0.4)', fontSize:'13px'}}>No open tasks</div>
+  );
+
+  return (
+    <div style={{padding:'16px', overflowY:'auto', height:'100%'}}>
+      {lists.map(list => (
+        <div key={list.id}>
+          <div style={{fontSize:'10.5px', letterSpacing:'0.08em', color:'rgba(200,212,232,0.45)', fontWeight:600, textTransform:'uppercase', padding:'10px 0 6px'}}>{list.title}</div>
+          {list.tasks.map(t => (
+            <div key={t.id} onClick={() => handleComplete(list.id, t.id)}
+              style={{display:'flex', alignItems:'center', gap:'10px', padding:'10px 0', borderBottom:'1px solid rgba(55,138,221,0.08)', cursor:'pointer', opacity: completing[t.id] ? 0.4 : 1, transition:'opacity 0.2s'}}>
+              <div style={{width:'18px', height:'18px', borderRadius:'5px', border: completing[t.id] ? 'none' : '1.5px solid rgba(55,138,221,0.35)', background: completing[t.id] ? 'rgba(55,138,221,0.8)' : 'transparent', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s'}}>
+                {completing[t.id] && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+              </div>
+              <div style={{flex:1, fontSize:'13px', color:'#C8D4E8'}}>{t.title}</div>
+              {t.due && <div style={{fontSize:'11px', fontWeight:600, color: dueColor(t.due), whiteSpace:'nowrap'}}>{t.due}</div>}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ── Conversation History ── */
 function ConversationHistory() {
   const [convos, setConvos] = useState([]);
@@ -766,7 +816,8 @@ function App() {
 
       <main className="main">
         {activeNav === 'history' ? <ConversationHistory /> :
-         activeNav === 'schedule' ? <ScheduleView /> : (
+         activeNav === 'schedule' ? <ScheduleView /> :
+         activeNav === 'tasks' ? <TasksView /> : (
           <div className="main-inner">
             <Orb state={orbState} onClick={toggleOrb} orbRef={orbWrapRef} />
             <div className={`hint ${orbState}`}>{hint}</div>

@@ -415,6 +415,12 @@
   .task-time.urgent { color: var(--yellow); }
   .task-time.normal { color: var(--blue); }
   .task.done .task-time { color: var(--text-dim); text-decoration: line-through; }
+  .task-list-header { font-size: 10.5px; letter-spacing: 0.08em; color: var(--text-dim); padding: 10px 12px 4px; font-weight: 600; text-transform: uppercase; }
+  .task-list-header:not(:first-child) { border-top: 1px solid rgba(55, 138, 221, 0.08); margin-top: 4px; }
+  .task-due { font-size: 11px; font-weight: 600; }
+  .task-due.overdue { color: var(--yellow); }
+  .task-due.today { color: var(--blue); }
+  .task-due.future { color: var(--text-dim); }
 
   /* Schedule */
   .sched-card { padding: 14px 14px 10px; }
@@ -707,19 +713,49 @@ function Transcript({ messages, isThinking }) {
 }
 
 /* ───── Tasks ───── */
-function TasksCard({ tasks, toggleTask }) {
-  const remaining = tasks.filter(t => !t.done).length;
+function TasksCard({ lists, onComplete }) {
+  const total = lists.reduce((n, l) => n + l.tasks.length, 0);
+  const [completing, setCompleting] = React.useState({});
+
+  const handleComplete = async (listId, taskId, e) => {
+    e.stopPropagation();
+    setCompleting(c => ({ ...c, [taskId]: true }));
+    try {
+      await fetch(`${API_BASE}/tasks/${listId}/${taskId}/complete`, { method: 'POST' });
+      onComplete(listId, taskId);
+    } catch { setCompleting(c => ({ ...c, [taskId]: false })); }
+  };
+
+  const dueClass = (due) => {
+    if (!due) return '';
+    if (due === 'Overdue') return 'overdue';
+    if (due === 'Due today') return 'today';
+    return 'future';
+  };
+
+  if (lists.length === 0) return (
+    <div>
+      <div className="panel-label"><span>TASKS</span><span className="panel-meta">0 open</span></div>
+      <div className="card" style={{padding:'16px 12px',color:'var(--text-dim)',fontSize:'13px'}}>No open tasks</div>
+    </div>
+  );
+
   return (
     <div>
-      <div className="panel-label"><span>TODAY'S TASKS</span><span className="panel-meta">{remaining} open</span></div>
-      <div className="card">
-        {tasks.map(t => (
-          <div key={t.id} className={`task ${t.done ? 'done' : ''}`} onClick={() => toggleTask(t.id)}>
-            <div className="check">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            </div>
-            <div className="task-name">{t.name}</div>
-            <div className={`task-time ${t.urgent ? 'urgent' : 'normal'}`}>{t.time}</div>
+      <div className="panel-label"><span>TASKS</span><span className="panel-meta">{total} open</span></div>
+      <div className="card" style={{padding:'6px 0'}}>
+        {lists.map(list => (
+          <div key={list.id}>
+            <div className="task-list-header">{list.title}</div>
+            {list.tasks.map(t => (
+              <div key={t.id} className={`task ${completing[t.id] ? 'done' : ''}`} onClick={(e) => handleComplete(list.id, t.id, e)}>
+                <div className="check">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div className="task-name">{t.title}</div>
+                {t.due && <div className={`task-due ${dueClass(t.due)}`}>{t.due}</div>}
+              </div>
+            ))}
           </div>
         ))}
       </div>
@@ -824,13 +860,22 @@ function App() {
 
   const [events, setEvents] = useState([]);
   const [tomorrowEvents, setTomorrowEvents] = useState([]);
+  const [taskLists, setTaskLists] = useState([]);
 
   useEffect(() => {
     fetch(`${API_BASE}/calendar/today`)
       .then(r => r.json()).then(data => { if (data.events) setEvents(data.events); }).catch(() => {});
     fetch(`${API_BASE}/calendar/tomorrow`)
       .then(r => r.json()).then(data => { if (data.events) setTomorrowEvents(data.events); }).catch(() => {});
+    fetch(`${API_BASE}/tasks`)
+      .then(r => r.json()).then(data => { if (data.lists) setTaskLists(data.lists); }).catch(() => {});
   }, []);
+
+  const handleTaskComplete = (listId, taskId) => {
+    setTaskLists(prev => prev.map(l => l.id !== listId ? l : {
+      ...l, tasks: l.tasks.filter(t => t.id !== taskId)
+    }).filter(l => l.tasks.length > 0));
+  };
 
   const speakTokenRef = useRef(0);
   const audioQueueRef = useRef([]);
@@ -1076,6 +1121,7 @@ function App() {
       <aside className="right">
         <ScheduleCard events={events} />
         <ScheduleCard events={tomorrowEvents} label="TOMORROW" />
+        <TasksCard lists={taskLists} onComplete={handleTaskComplete} />
       </aside>
     </div>
   );
