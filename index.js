@@ -451,21 +451,6 @@ app.get('/calendar/tomorrow', async (req, res) => {
   }
 });
 
-app.get('/tasks/debug', async (req, res) => {
-  try {
-    const auth = await getAuthClient();
-    const tasksApi = google.tasks({ version: 'v1', auth });
-    const listRes = await tasksApi.tasklists.list({ maxResults: 20 });
-    const taskLists = listRes.data.items || [];
-    const details = await Promise.all(taskLists.map(async list => {
-      const taskRes = await tasksApi.tasks.list({ tasklist: list.id, showCompleted: true, showHidden: true, maxResults: 20 });
-      return { list: list.title, tasks: (taskRes.data.items || []).map(t => ({ title: t.title, status: t.status, hidden: t.hidden })) };
-    }));
-    res.json({ lists: details });
-  } catch (err) {
-    res.json({ error: err.message });
-  }
-});
 
 app.get('/tasks', async (req, res) => {
   try {
