@@ -1,5 +1,8 @@
+# package.json and package-lock.json must NOT be listed here — Vercel needs them
+# to install dependencies and build the functions in api/.
+#
+# index.js is Nova's standalone Express server, which ran on Railway. It isn't
+# used by the Vercel deployment; the dashboard's backend lives in api/ instead.
 index.js
 node_modules
-package.json
-package-lock.json
 .env
