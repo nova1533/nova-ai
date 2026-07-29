@@ -1,0 +1,2099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Boz — Morning Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ===== Boz — Morning Command Center :: theme + cards ===== */
+:root {
+  --bg: #0D1117;
+  --bg-2: #080b10;
+  --card: #131B24;
+  --card-2: #0f1620;
+  --border: rgba(125,155,185,0.12);
+  --border-strong: rgba(125,155,185,0.22);
+  --text: #EAF4FF;
+  --text-mid: #93a6b8;
+  --text-dim: #5A7080;
+  --teal: #00FFD1;
+  --orange: #FF8C00;
+  --gold: #FFD166;
+  --red: #FF4D6D;
+  --gm: 0.6;                 /* glow multiplier, set by Tweaks */
+  --num-font: 'Orbitron';    /* swapped by Tweaks */
+  --scan: rgba(255,255,255,0.016);
+  --shadow: 0 14px 38px rgba(0,0,0,0.55);
+  --halo: 0.5;               /* background halo opacity */
+  --track: rgba(125,155,185,0.14);
+}
+/* ===== LIGHT = "California" : warm coastal coffee-shop skin ===== */
+[data-theme="light"] {
+  --bg: #F3EAD8;            /* warm oat paper */
+  --bg-2: #E9DBC2;
+  --card: #FFFDF7;          /* warm white */
+  --card-2: #F7EFDF;
+  --border: rgba(120,92,58,0.16);
+  --border-strong: rgba(120,92,58,0.28);
+  --text: #392E20;         /* espresso */
+  --text-mid: #7B6A54;
+  --text-dim: #AD9C82;
+  --teal: #2F8475;         /* sea green (primary) */
+  --orange: #BF6845;       /* terracotta */
+  --gold: #C2912F;         /* golden hour */
+  --red: #B5463E;          /* warm brick */
+  --gm: 0.08;              /* almost no neon — soft shadows instead */
+  --scan: rgba(120,92,58,0.014);
+  --shadow: 0 14px 34px rgba(96,68,40,0.13);
+  --halo: 0.5;
+  --track: rgba(120,92,58,0.16);
+  --num-font: 'Spectral';
+}
+[data-theme="light"] body { font-family: 'Hanken Grotesk', system-ui, sans-serif; }
+/* warm halo field + suppress hard scanlines */
+[data-theme="light"] .stage {
+  background:
+    radial-gradient(900px 620px at 14% -4%, rgba(242,185,135,0.55) 0%, transparent 60%),
+    radial-gradient(820px 600px at 88% 4%, rgba(202,150,110,0.40) 0%, transparent 55%),
+    radial-gradient(1100px 820px at 70% 104%, rgba(120,150,128,0.34) 0%, transparent 58%),
+    var(--bg);
+  background-blend-mode: normal;
+}
+[data-theme="light"] .stage::after { opacity: .35; }
+[data-theme="light"] .card { border-radius: 20px; }
+[data-theme="light"] .card::before { opacity: .8; height: 2px; }
+[data-theme="light"] .brand .ttl,
+[data-theme="light"] .label { letter-spacing: .18em; }
+[data-theme="light"] .hero .name { font-weight: 700; letter-spacing: -.01em; }
+[data-theme="light"] .num { font-weight: 600; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--bg); }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  transition: background .4s ease, color .4s ease;
+}
+
+/* background field: halos + scanlines */
+.stage {
+  position: relative;
+  min-height: 100vh;
+  background:
+    radial-gradient(900px 600px at 12% 0%, color-mix(in srgb, var(--teal), transparent 90%) 0%, transparent 60%),
+    radial-gradient(800px 600px at 85% 8%, color-mix(in srgb, var(--orange), transparent 92%) 0%, transparent 55%),
+    radial-gradient(1000px 800px at 70% 100%, color-mix(in srgb, var(--gold), transparent 94%) 0%, transparent 55%),
+    var(--bg);
+  background-blend-mode: screen;
+}
+.stage::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 1;
+  background: repeating-linear-gradient(to bottom, var(--scan) 0, var(--scan) 1px, transparent 1px, transparent 3px);
+  opacity: calc(0.5 + var(--gm) * 0.5);
+}
+.wrap { position: relative; z-index: 2; max-width: 1640px; margin: 0 auto; padding: 30px 30px 44px; }
+
+/* ---- numbers / labels ---- */
+.num { font-family: var(--num-font), 'Orbitron', monospace; font-weight: 600; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
+.label { font-size: 10px; text-transform: uppercase; letter-spacing: .16em; color: var(--text-dim); font-weight: 600; white-space: nowrap; }
+.label-acc { color: color-mix(in srgb, var(--acc), var(--text-dim) 30%); }
+
+/* accent tokens */
+.acc-teal   { --acc: var(--teal); }
+.acc-orange { --acc: var(--orange); }
+.acc-gold   { --acc: var(--gold); }
+.acc-red    { --acc: var(--red); }
+.acc-dim    { --acc: var(--text-dim); }
+.glow-text { text-shadow: 0 0 calc(18px * var(--gm)) color-mix(in srgb, var(--acc, var(--teal)), transparent 40%); }
+
+/* ---- top app bar ---- */
+.topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--teal);
+  box-shadow: 0 0 calc(14px*var(--gm)) var(--teal); }
+.brand .ttl { font-size: 12px; letter-spacing: .26em; text-transform: uppercase; color: var(--text-mid); font-weight: 600; }
+.topbar .meta { display: flex; align-items: center; gap: 14px; }
+.skin-switch { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 999px; overflow: hidden; background: var(--card-2); }
+.skin-switch button { padding: 8px 16px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700;
+  color: var(--text-dim); background: transparent; border: none; cursor: pointer; transition: color .2s ease, background .2s ease; }
+.skin-switch button:hover { color: var(--text-mid); }
+.skin-switch button.active { color: var(--bg); background: var(--teal); box-shadow: 0 0 calc(14px*var(--gm)) var(--teal); }
+.chip { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim);
+  border: 1px solid var(--border); padding: 7px 12px; border-radius: 999px; }
+.chip b { color: var(--text); font-weight: 600; }
+
+/* ---- grid ---- */
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+.col2 { grid-column: span 2; }
+.col4 { grid-column: span 4; }
+@media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); } .col4 { grid-column: span 2; } }
+@media (max-width: 640px)  { .grid { grid-template-columns: 1fr; } .col2, .col4 { grid-column: span 1; } }
+
+/* ---- card shell ---- */
+.card {
+  position: relative; background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 20px; overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: border-color .25s ease, transform .25s ease;
+}
+.card::before {
+  content: ""; position: absolute; top: 0; left: 14px; right: 14px; height: 1.5px;
+  background: var(--acc, var(--teal)); border-radius: 2px;
+  box-shadow: 0 0 calc(16px * var(--gm)) var(--acc, var(--teal)), 0 0 calc(4px*var(--gm)) var(--acc, var(--teal));
+  opacity: .9;
+}
+.card:hover { border-color: color-mix(in srgb, var(--acc, var(--border-strong)), transparent 55%); }
+.card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.card-head .label { display: flex; align-items: center; gap: 8px; }
+.led { width: 7px; height: 7px; border-radius: 50%; background: var(--acc); box-shadow: 0 0 calc(10px*var(--gm)) var(--acc); }
+
+/* ===== Hero ===== */
+.hero { display: flex; flex-direction: column; min-height: 260px; }
+.hero .eyebrow { color: color-mix(in srgb, var(--teal), var(--text-dim) 20%); letter-spacing: .28em; }
+.hero .date { color: var(--text-dim); font-size: 12px; letter-spacing: .08em; margin-top: 4px; }
+.hero .name { font-size: 84px; line-height: .9; letter-spacing: .02em; margin: 14px 0 12px;
+  color: var(--text); text-shadow: 0 0 calc(34px*var(--gm)) color-mix(in srgb, var(--teal), transparent 55%); }
+.hero .intent { font-size: 17px; color: var(--text-mid); max-width: 30ch; line-height: 1.4; }
+.hero .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: auto; padding-top: 22px; }
+.stat { border-left: 2px solid color-mix(in srgb, var(--acc), transparent 40%); padding-left: 12px; }
+.stat .v { font-size: 26px; color: var(--text); }
+.stat .l { font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--text-dim); margin-top: 3px; }
+.stat .d { font-size: 11px; color: var(--acc); margin-top: 5px; font-weight: 600; }
+
+/* ===== Rings ===== */
+.rings-wrap { display: flex; flex-direction: column; align-items: center; }
+.ring-svg { width: 168px; height: 168px; }
+.ring-center { font-size: 40px; }
+.ring-center-sub { font-size: 9px; letter-spacing: .18em; color: var(--text-dim); text-transform: uppercase; }
+.ring-legend { width: 100%; margin-top: 14px; display: flex; flex-direction: column; gap: 9px; }
+.ring-legend .row { display: flex; align-items: center; gap: 9px; font-size: 12px; }
+.ring-legend .nm { color: var(--text-mid); flex: 1; }
+.ring-legend .vl { color: var(--text); font-size: 12px; }
+
+/* ===== KPI ===== */
+.kpi-big { font-size: 40px; color: var(--text); line-height: 1; }
+.kpi-sub { font-size: 11px; color: var(--text-dim); letter-spacing: .12em; text-transform: uppercase; margin-top: 6px; }
+.bar { height: 7px; border-radius: 6px; background: var(--track); overflow: hidden; margin: 14px 0 8px; }
+.bar > span { display: block; height: 100%; border-radius: 6px; background: var(--acc);
+  box-shadow: 0 0 calc(12px*var(--gm)) var(--acc); }
+.bar-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim); }
+.bar-meta b { color: var(--text); font-weight: 600; }
+.stages { display: flex; gap: 8px; margin-top: 16px; }
+.stage-pill { flex: 1; background: var(--card-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 8px; text-align: center; }
+.stage-pill .c { font-size: 21px; color: var(--text); }
+.stage-pill .n { font-size: 8.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); margin-top: 3px; }
+.trend { font-size: 12px; font-weight: 600; color: var(--acc); }
+
+/* mini bar chart */
+.minibars { display: flex; align-items: flex-end; gap: 7px; height: 64px; margin-top: 14px; }
+.minibars .b { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+.minibars .b i { width: 100%; border-radius: 4px 4px 2px 2px; background: color-mix(in srgb, var(--acc), transparent 25%);
+  box-shadow: 0 0 calc(8px*var(--gm)) color-mix(in srgb, var(--acc), transparent 40%); display: block; }
+.minibars .b.zero i { background: var(--track); box-shadow: none; }
+.minibars .b span { font-size: 9px; color: var(--text-dim); }
+
+/* ===== Habit tracker ===== */
+.habits { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.habit { display: flex; align-items: center; gap: 13px; background: var(--card-2);
+  border: 1px solid var(--border); border-radius: 13px; padding: 14px; cursor: pointer; transition: all .2s ease; }
+.habit:hover { border-color: color-mix(in srgb, var(--acc), transparent 55%); }
+.habit.done { border-color: color-mix(in srgb, var(--acc), transparent 35%);
+  box-shadow: inset 0 0 calc(26px*var(--gm)) color-mix(in srgb, var(--acc), transparent 86%); }
+.check { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--text-dim);
+  display: grid; place-items: center; flex-shrink: 0; transition: all .2s ease; color: transparent; }
+.habit.done .check { border-color: var(--acc); background: color-mix(in srgb, var(--acc), transparent 80%);
+  color: var(--acc); box-shadow: 0 0 calc(12px*var(--gm)) color-mix(in srgb, var(--acc), transparent 55%); }
+.habit .nm { font-size: 14px; color: var(--text); font-weight: 600; }
+.habit .nt { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.habit .streak { margin-left: auto; text-align: right; }
+.habit .streak .s { font-size: 18px; color: var(--acc); }
+.habit .streak .sl { font-size: 8px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); }
+
+/* ===== Task lists ===== */
+.tasks { display: flex; flex-direction: column; gap: 2px; }
+.task { display: flex; align-items: center; gap: 11px; padding: 11px 4px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.task:last-child { border-bottom: none; }
+.task .box { width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--text-dim); flex-shrink: 0;
+  display: grid; place-items: center; color: transparent; transition: all .18s ease; }
+.task.done .box { background: var(--acc); border-color: var(--acc); color: var(--bg); }
+.task .tt { font-size: 13px; color: var(--text); flex: 1; }
+.task.done .tt { color: var(--text-dim); text-decoration: line-through; }
+.task .pri { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.pri-high { background: var(--red); box-shadow: 0 0 calc(8px*var(--gm)) var(--red); }
+.pri-med  { background: var(--orange); }
+.pri-low  { background: var(--teal); }
+.task .due { font-size: 10px; color: var(--text-dim); width: 48px; text-align: right; flex-shrink: 0; letter-spacing: .04em; }
+
+/* ===== Real estate ===== */
+.re-row { display: flex; align-items: center; gap: 13px; padding: 12px 4px; border-bottom: 1px solid var(--border); }
+.re-row:last-child { border-bottom: none; }
+.re-ico { width: 34px; height: 34px; border-radius: 9px; background: var(--card-2); border: 1px solid var(--border);
+  display: grid; place-items: center; flex-shrink: 0; color: var(--acc); }
+.re-main { flex: 1; min-width: 0; }
+.re-main .a { font-size: 13px; color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.re-main .b { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.re-amt { text-align: right; flex-shrink: 0; }
+.re-amt .m { font-size: 14px; color: var(--text); }
+.status-tag { font-size: 8.5px; letter-spacing: .1em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; font-weight: 700;
+  background: color-mix(in srgb, var(--acc), transparent 84%); color: var(--acc); border: 1px solid color-mix(in srgb, var(--acc), transparent 60%); }
+
+/* ===== Weekly calendar ===== */
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+.day { background: var(--card-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 10px; min-height: 120px; }
+.day.today { border-color: color-mix(in srgb, var(--teal), transparent 30%);
+  box-shadow: inset 0 0 calc(30px*var(--gm)) color-mix(in srgb, var(--teal), transparent 85%); }
+.day .dl { font-size: 9px; letter-spacing: .14em; color: var(--text-dim); }
+.day.today .dl { color: var(--teal); }
+.day .dn { font-size: 22px; color: var(--text); margin: 2px 0 10px; }
+.day.today .dn { color: var(--teal); text-shadow: 0 0 calc(14px*var(--gm)) color-mix(in srgb, var(--teal), transparent 50%); }
+.ev { font-size: 10px; color: var(--text-mid); margin-bottom: 6px; line-height: 1.3; }
+.ev b { color: var(--text-dim); font-weight: 600; margin-right: 4px; font-family: var(--num-font), monospace; }
+
+/* ===== Important dates ===== */
+.dates { display: flex; flex-direction: column; gap: 11px; }
+.drow { display: flex; align-items: center; gap: 14px; background: var(--card-2); border: 1px solid var(--border);
+  border-left: 2px solid var(--acc); border-radius: 11px; padding: 13px 15px; }
+.dcount { text-align: center; flex-shrink: 0; min-width: 52px; }
+.dcount .n { font-size: 26px; color: var(--acc); line-height: 1; }
+.dcount .u { font-size: 8px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); margin-top: 3px; }
+.dmain { flex: 1; }
+.dmain .l { font-size: 14px; color: var(--text); font-weight: 600; }
+.dmain .p { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+.dmain .dt { font-size: 11px; color: var(--text-mid); font-family: var(--num-font), monospace; }
+
+/* ===== Intention banner ===== */
+.banner { display: grid; grid-template-columns: 1.1fr 1.4fr; gap: 26px; align-items: center; }
+.banner .quote-side { border-left: 2px solid var(--teal); padding-left: 20px; }
+.banner .qmark { font-size: 13px; letter-spacing: .2em; color: var(--teal); text-transform: uppercase; margin-bottom: 10px; }
+.banner .quote { font-size: 22px; line-height: 1.35; color: var(--text); font-weight: 500; text-wrap: balance; }
+.goals { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+.goal { display: flex; align-items: center; gap: 11px; background: var(--card-2); border: 1px solid var(--border); border-radius: 11px; padding: 13px 14px; }
+.goal .gdot { width: 9px; height: 9px; border-radius: 50%; background: var(--acc); box-shadow: 0 0 calc(9px*var(--gm)) var(--acc); flex-shrink: 0; }
+.goal .gl { font-size: 13px; color: var(--text); flex: 1; }
+.goal .gck { font-size: 12px; color: var(--acc); }
+.goal.todo .gl { color: var(--text-mid); }
+@media (max-width: 760px) { .banner { grid-template-columns: 1fr; } }
+
+/* ===== California coastline hero (light skin only) ===== */
+.hero-cali { position: relative; padding: 0; overflow: hidden; min-height: 300px; display: flex; }
+.hero-cali image-slot { position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  background: linear-gradient(195deg, #CFE3F2 0%, #A7C8E6 36%, #7FAFD6 60%, #4E7E9A 100%); }
+.hero-cali .scrim { position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(to top, rgba(26,36,50,0.86) 0%, rgba(26,36,50,0.34) 46%, rgba(26,36,50,0.05) 100%); }
+.hero-cali .content { position: relative; z-index: 2; padding: 24px; display: flex; flex-direction: column; width: 100%; color: #F4F8FC; }
+.hero-cali .eyebrow { color: #DCEBFA; letter-spacing: .26em; }
+.hero-cali .date { color: rgba(240,247,255,0.8); font-size: 12px; letter-spacing: .06em; margin-top: 5px; }
+.hero-cali .name { font-size: 80px; line-height: .9; margin: 16px 0 12px; color: #FFFFFF;
+  font-family: var(--num-font), 'Spectral', serif; font-weight: 700; text-shadow: 0 2px 24px rgba(0,0,0,0.35); }
+.hero-cali .intent { font-size: 18px; color: rgba(240,247,255,0.92); max-width: 30ch; line-height: 1.4; font-style: italic; }
+.hero-cali .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: auto; padding-top: 26px; }
+.hero-cali .stat { border-left: 2px solid rgba(240,247,255,0.5); padding-left: 12px; }
+.hero-cali .stat .v { font-size: 26px; color: #FFFFFF; font-family: var(--num-font), 'Spectral', serif; }
+.hero-cali .stat .l { font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: rgba(240,247,255,0.7); margin-top: 3px; }
+.hero-cali .stat .d { font-size: 11px; color: #DCEBFA; margin-top: 5px; font-weight: 600; }
+.hero-cali .photo-hint { position: absolute; z-index: 2; top: 16px; right: 16px; font-size: 9px; letter-spacing: .14em;
+  text-transform: uppercase; color: rgba(240,247,255,0.7); background: rgba(26,36,50,0.4);
+  padding: 5px 9px; border-radius: 999px; backdrop-filter: blur(4px); pointer-events: none; }
+
+/* inspiration ambient bg (toggle) */
+.stage.insp::before {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: var(--insp-img);
+  background-size: cover; background-position: center;
+  opacity: .14; filter: saturate(.7);
+  mask-image: radial-gradient(120% 90% at 50% 0%, #000 0%, transparent 75%);
+}
+
+</style>
+</head>
+<body>
+<div id="root"></div>
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<rect width="100" height="100" fill="#0D1117"/>
+<circle cx="50" cy="42" r="20" fill="none" stroke="#00E5FF" stroke-width="3"/>
+<circle cx="50" cy="42" r="13" fill="none" stroke="#FF6B9D" stroke-width="3"/>
+<rect x="30" y="72" width="40" height="4" rx="2" fill="#FFD166"/>
+</svg>
+</template>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script>
+/* BEGIN USAGE */
+/**
+ * <image-slot> — user-fillable image placeholder.
+ *
+ * Drop this into a deck, mockup, or page wherever you want the user to
+ * supply an image. You control the slot's shape and size; the user fills it
+ * by dragging an image file onto it (or clicking to browse). The dropped
+ * image persists across reloads via a .image-slots.state.json sidecar —
+ * same read-via-fetch / write-via-window.omelette pattern as
+ * design_canvas.jsx, so the filled slot shows on share links, downloaded
+ * zips, and PPTX export. Outside the omelette runtime the slot is read-only.
+ *
+ * The host bridge only allows sidecar writes at the project root, so the
+ * HTML that uses this component is assumed to live at the project root too
+ * (same constraint as design_canvas.jsx).
+ *
+ * Attributes:
+ *   id           Persistence key. REQUIRED for the drop to survive reload —
+ *                every slot on the page needs a distinct id.
+ *   shape        'rect' | 'rounded' | 'circle' | 'pill'   (default 'rounded')
+ *                'circle' applies 50% border-radius; on a non-square slot
+ *                that's an ellipse — set equal width and height for a true
+ *                circle.
+ *   radius       Corner radius in px for 'rounded'.       (default 12)
+ *   mask         Any CSS clip-path value. Overrides `shape` — use this for
+ *                hexagons, blobs, arbitrary polygons.
+ *   fit          object-fit: cover | contain | fill.       (default 'cover')
+ *                With cover (the default) double-clicking the filled slot
+ *                enters a reframe mode: the whole image spills past the mask
+ *                (translucent outside, opaque inside), drag to reposition,
+ *                corner-drag to scale. The crop persists alongside the image
+ *                in the sidecar. contain/fill stay static.
+ *   position     object-position for fit=contain|fill.     (default '50% 50%')
+ *   placeholder  Empty-state caption.                      (default 'Drop an image')
+ *   src          Optional initial/fallback image URL. A user drop overrides
+ *                it; clearing the drop reveals src again.
+ *
+ * Size and layout come from ordinary CSS on the element — width/height
+ * inline or from a parent grid — so it composes with any layout.
+ *
+ * Usage:
+ *   <image-slot id="hero"   style="width:800px;height:450px" shape="rounded" radius="20"
+ *               placeholder="Drop a hero image"></image-slot>
+ *   <image-slot id="avatar" style="width:120px;height:120px" shape="circle"></image-slot>
+ *   <image-slot id="kite"   style="width:300px;height:300px"
+ *               mask="polygon(50% 0, 100% 50%, 50% 100%, 0 50%)"></image-slot>
+ */
+/* END USAGE */
+
+(() => {
+  const STATE_FILE = '.image-slots.state.json';
+  // 2× a ~600px slot in a 1920-wide deck — retina-sharp without making the
+  // sidecar enormous. A 1200px WebP at q=0.85 is ~150-300KB.
+  const MAX_DIM = 1200;
+  // Raster formats only. SVG is excluded (can carry script; createImageBitmap
+  // on SVG blobs is inconsistent). GIF is excluded because the canvas
+  // re-encode keeps only the first frame, so an animated GIF would silently
+  // go still — better to reject than surprise.
+  const ACCEPT = ['image/png', 'image/jpeg', 'image/webp', 'image/avif'];
+
+  // ── Shared sidecar store ────────────────────────────────────────────────
+  // One fetch + immediate write-on-change for every <image-slot> on the
+  // page. Reads via fetch() so viewing works anywhere the HTML and sidecar
+  // are served together; writes go through window.omelette.writeFile, which
+  // the host allowlists to *.state.json basenames only.
+  const subs = new Set();
+  let slots = {};
+  // ids explicitly cleared before the sidecar fetch resolved — otherwise
+  // the merge below can't tell "never set" from "just deleted" and would
+  // resurrect the sidecar's stale value.
+  const tombstones = new Set();
+  let loaded = false;
+  let loadP = null;
+
+  function load() {
+    if (loadP) return loadP;
+    loadP = fetch(STATE_FILE)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        // Merge: sidecar loses to any in-memory change that raced ahead of
+        // the fetch (drop or clear) so neither is clobbered by hydration.
+        if (j && typeof j === 'object') {
+          const merged = Object.assign({}, j, slots);
+          // A framing-only write that raced ahead of hydration must not
+          // drop a user image that's only on disk — inherit u from the
+          // sidecar for any in-memory entry that lacks one.
+          for (const k in slots) {
+            if (merged[k] && !merged[k].u && j[k]) {
+              merged[k].u = typeof j[k] === 'string' ? j[k] : j[k].u;
+            }
+          }
+          for (const id of tombstones) delete merged[id];
+          slots = merged;
+        }
+        tombstones.clear();
+      })
+      .catch(() => {})
+      .then(() => { loaded = true; subs.forEach((fn) => fn()); });
+    return loadP;
+  }
+
+  // Serialize writes so two near-simultaneous drops on different slots
+  // can't reorder at the backend and leave the sidecar with only the
+  // first. A save requested mid-flight just marks dirty and re-fires on
+  // completion with the then-current slots.
+  let saving = false;
+  let saveDirty = false;
+  function save() {
+    if (saving) { saveDirty = true; return; }
+    const w = window.omelette && window.omelette.writeFile;
+    if (!w) return;
+    saving = true;
+    Promise.resolve(w(STATE_FILE, JSON.stringify(slots)))
+      .catch(() => {})
+      .then(() => { saving = false; if (saveDirty) { saveDirty = false; save(); } });
+  }
+
+  const S_MAX = 5;
+  const clampS = (s) => Math.max(1, Math.min(S_MAX, s));
+
+  // Normalize a stored slot value. Pre-reframe sidecars stored a bare
+  // data-URL string; newer ones store {u, s, x, y}. Either shape is valid.
+  function getSlot(id) {
+    const v = slots[id];
+    if (!v) return null;
+    return typeof v === 'string' ? { u: v, s: 1, x: 0, y: 0 } : v;
+  }
+
+  function setSlot(id, val) {
+    if (!id) return;
+    if (val) { slots[id] = val; tombstones.delete(id); }
+    else { delete slots[id]; if (!loaded) tombstones.add(id); }
+    subs.forEach((fn) => fn());
+    // A drop is rare + high-value — write immediately so nav-away can't lose
+    // it. Gate on the initial read so we don't overwrite a sidecar we haven't
+    // merged yet; the merge in load() keeps this change once the read lands.
+    if (loaded) save(); else load().then(save);
+  }
+
+  // ── Image downscale ─────────────────────────────────────────────────────
+  // Encode through a canvas so the sidecar carries resized bytes, not the
+  // raw upload. Longest side is capped at 2× the slot's rendered width
+  // (retina) and at MAX_DIM. WebP keeps alpha and is ~10× smaller than PNG
+  // for photos, so there's no need for per-image format picking.
+  async function toDataUrl(file, targetW) {
+    const bitmap = await createImageBitmap(file);
+    try {
+      const cap = Math.min(MAX_DIM, Math.max(1, Math.round(targetW * 2)) || MAX_DIM);
+      const scale = Math.min(1, cap / Math.max(bitmap.width, bitmap.height));
+      const w = Math.max(1, Math.round(bitmap.width * scale));
+      const h = Math.max(1, Math.round(bitmap.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+      return canvas.toDataURL('image/webp', 0.85);
+    } finally {
+      bitmap.close && bitmap.close();
+    }
+  }
+
+  // ── Custom element ──────────────────────────────────────────────────────
+  const stylesheet =
+    ':host{display:inline-block;position:relative;vertical-align:top;' +
+    '  font:13px/1.3 system-ui,-apple-system,sans-serif;color:rgba(0,0,0,.55);width:240px;height:160px}' +
+    '.frame{position:absolute;inset:0;overflow:hidden;background:rgba(0,0,0,.04)}' +
+    // .frame img (clipped) and .spill (unclipped ghost + handles) share the
+    // same left/top/width/height in frame-%, computed by _applyView(), so the
+    // inside-mask crop and the outside-mask spill stay pixel-aligned.
+    '.frame img{position:absolute;max-width:none;transform:translate(-50%,-50%);' +
+    '  -webkit-user-drag:none;user-select:none;touch-action:none}' +
+    // Reframe mode (double-click): the full image spills past the mask. The
+    // spill layer is sized to the IMAGE bounds so its corners are where the
+    // resize handles belong. The ghost <img> inside is translucent; the real
+    // clipped <img> underneath shows the opaque in-mask crop.
+    '.spill{position:absolute;transform:translate(-50%,-50%);display:none;z-index:1;' +
+    '  cursor:grab;touch-action:none}' +
+    ':host([data-panning]) .spill{cursor:grabbing}' +
+    '.spill .ghost{position:absolute;inset:0;width:100%;height:100%;opacity:.35;' +
+    '  pointer-events:none;-webkit-user-drag:none;user-select:none;' +
+    '  box-shadow:0 0 0 1px rgba(0,0,0,.2),0 12px 32px rgba(0,0,0,.2)}' +
+    '.spill .handle{position:absolute;width:12px;height:12px;border-radius:50%;' +
+    '  background:#fff;box-shadow:0 0 0 1.5px #c96442,0 1px 3px rgba(0,0,0,.3);' +
+    '  transform:translate(-50%,-50%)}' +
+    '.spill .handle[data-c=nw]{left:0;top:0;cursor:nwse-resize}' +
+    '.spill .handle[data-c=ne]{left:100%;top:0;cursor:nesw-resize}' +
+    '.spill .handle[data-c=sw]{left:0;top:100%;cursor:nesw-resize}' +
+    '.spill .handle[data-c=se]{left:100%;top:100%;cursor:nwse-resize}' +
+    ':host([data-reframe]){z-index:10}' +
+    ':host([data-reframe]) .spill{display:block}' +
+    ':host([data-reframe]) .frame{box-shadow:0 0 0 2px #c96442}' +
+    '.empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;' +
+    '  justify-content:center;gap:6px;text-align:center;padding:12px;box-sizing:border-box;' +
+    '  cursor:pointer;user-select:none}' +
+    '.empty svg{opacity:.45}' +
+    '.empty .cap{max-width:90%;font-weight:500;letter-spacing:.01em}' +
+    '.empty .sub{font-size:11px}' +
+    '.empty .sub u{text-underline-offset:2px;text-decoration-color:rgba(0,0,0,.25)}' +
+    '.empty:hover .sub u{color:rgba(0,0,0,.75);text-decoration-color:currentColor}' +
+    ':host([data-over]) .frame{outline:2px solid #c96442;outline-offset:-2px;' +
+    '  background:rgba(201,100,66,.10)}' +
+    '.ring{position:absolute;inset:0;pointer-events:none;border:1.5px dashed rgba(0,0,0,.25);' +
+    '  transition:border-color .12s}' +
+    ':host([data-over]) .ring{border-color:#c96442}' +
+    ':host([data-filled]) .ring{display:none}' +
+    // Controls sit BELOW the mask (top:100%), absolutely positioned so the
+    // author-declared slot height is unaffected. The gap is padding, not a
+    // top offset, so the hover target stays contiguous with the frame.
+    '.ctl{position:absolute;top:100%;left:50%;transform:translateX(-50%);padding-top:8px;' +
+    '  display:flex;gap:6px;opacity:0;pointer-events:none;transition:opacity .12s;z-index:2;' +
+    '  white-space:nowrap}' +
+    ':host([data-filled][data-editable]:hover) .ctl,:host([data-reframe]) .ctl' +
+    '  {opacity:1;pointer-events:auto}' +
+    '.ctl button{appearance:none;border:0;border-radius:6px;padding:5px 10px;cursor:pointer;' +
+    '  background:rgba(0,0,0,.65);color:#fff;font:11px/1 system-ui,-apple-system,sans-serif;' +
+    '  backdrop-filter:blur(6px)}' +
+    '.ctl button:hover{background:rgba(0,0,0,.8)}' +
+    '.err{position:absolute;left:8px;bottom:8px;right:8px;color:#b3261e;font-size:11px;' +
+    '  background:rgba(255,255,255,.85);padding:4px 6px;border-radius:5px;pointer-events:none}';
+
+  const icon =
+    '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+    'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+    '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>' +
+    '<path d="m21 15-5-5L5 21"/></svg>';
+
+  class ImageSlot extends HTMLElement {
+    static get observedAttributes() {
+      return ['shape', 'radius', 'mask', 'fit', 'position', 'placeholder', 'src', 'id'];
+    }
+
+    constructor() {
+      super();
+      const root = this.attachShadow({ mode: 'open' });
+      // .spill and .ctl sit OUTSIDE .frame so overflow:hidden + border-radius
+      // on the frame (circle, pill, rounded) can't clip them.
+      root.innerHTML =
+        '<style>' + stylesheet + '</style>' +
+        '<div class="frame" part="frame">' +
+        '  <img part="image" alt="" draggable="false" style="display:none">' +
+        '  <div class="empty" part="empty">' + icon +
+        '    <div class="cap"></div>' +
+        '    <div class="sub">or <u>browse files</u></div></div>' +
+        '  <div class="ring" part="ring"></div>' +
+        '</div>' +
+        '<div class="spill">' +
+        '  <img class="ghost" alt="" draggable="false">' +
+        '  <div class="handle" data-c="nw"></div><div class="handle" data-c="ne"></div>' +
+        '  <div class="handle" data-c="sw"></div><div class="handle" data-c="se"></div>' +
+        '</div>' +
+        '<div class="ctl"><button data-act="replace" title="Replace image">Replace</button>' +
+        '  <button data-act="clear" title="Remove image">Remove</button></div>' +
+        '<input type="file" accept="' + ACCEPT.join(',') + '" hidden>';
+      this._frame = root.querySelector('.frame');
+      this._ring = root.querySelector('.ring');
+      this._img = root.querySelector('.frame img');
+      this._empty = root.querySelector('.empty');
+      this._cap = root.querySelector('.cap');
+      this._sub = root.querySelector('.sub');
+      this._spill = root.querySelector('.spill');
+      this._ghost = root.querySelector('.ghost');
+      this._err = null;
+      this._input = root.querySelector('input');
+      this._depth = 0;
+      this._gen = 0;
+      this._view = { s: 1, x: 0, y: 0 };
+      this._subFn = () => this._render();
+      // Shadow-DOM listeners live with the shadow DOM — bound once here so
+      // disconnect/reconnect (e.g. React remount) doesn't stack handlers.
+      this._empty.addEventListener('click', () => this._input.click());
+      root.addEventListener('click', (e) => {
+        const act = e.target && e.target.getAttribute && e.target.getAttribute('data-act');
+        if (act === 'replace') { this._exitReframe(true); this._input.click(); }
+        if (act === 'clear') {
+          this._exitReframe(false);
+          this._gen++;
+          this._local = null;
+          if (this.id) setSlot(this.id, null); else this._render();
+        }
+      });
+      this._input.addEventListener('change', () => {
+        const f = this._input.files && this._input.files[0];
+        if (f) this._ingest(f);
+        this._input.value = '';
+      });
+      // naturalWidth/Height aren't known until load — re-apply so the cover
+      // baseline is computed from real dimensions, not the 100%×100% fallback.
+      this._img.addEventListener('load', () => this._applyView());
+      // Gated on editable + fit=cover so share links and contain/fill slots
+      // stay static.
+      this.addEventListener('dblclick', (e) => {
+        if (!this.hasAttribute('data-editable') || !this._reframes()) return;
+        e.preventDefault();
+        if (this.hasAttribute('data-reframe')) this._exitReframe(true);
+        else this._enterReframe();
+      });
+      // Pan + resize both originate on the spill layer. A handle pointerdown
+      // drives an aspect-locked resize anchored at the opposite corner; any
+      // other pointerdown on the spill pans. Offsets are frame-% so a
+      // reframed slot survives responsive resize / PPTX export.
+      this._spill.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0 || !this.hasAttribute('data-reframe')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        this._spill.setPointerCapture(e.pointerId);
+        const rect = this.getBoundingClientRect();
+        const fw = rect.width || 1, fh = rect.height || 1;
+        const corner = e.target.getAttribute && e.target.getAttribute('data-c');
+        let move;
+        if (corner) {
+          // Resize about the OPPOSITE corner. Viewport-px throughout (rect
+          // fw/fh, not clientWidth) so the math survives a transform:scale()
+          // ancestor — deck_stage renders slides scaled-to-fit.
+          const iw = this._img.naturalWidth || 1, ih = this._img.naturalHeight || 1;
+          const base = Math.max(fw / iw, fh / ih);
+          const sx = corner.includes('e') ? 1 : -1;
+          const sy = corner.includes('s') ? 1 : -1;
+          const s0 = this._view.s;
+          const w0 = iw * base * s0, h0 = ih * base * s0;
+          const cx0 = (50 + this._view.x) / 100 * fw;
+          const cy0 = (50 + this._view.y) / 100 * fh;
+          const ox = cx0 - sx * w0 / 2, oy = cy0 - sy * h0 / 2;
+          const diag0 = Math.hypot(w0, h0);
+          const ux = sx * w0 / diag0, uy = sy * h0 / diag0;
+          move = (ev) => {
+            const proj = (ev.clientX - rect.left - ox) * ux +
+                         (ev.clientY - rect.top - oy) * uy;
+            const s = clampS(s0 * proj / diag0);
+            const d = diag0 * s / s0;
+            this._view.s = s;
+            this._view.x = (ox + ux * d / 2) / fw * 100 - 50;
+            this._view.y = (oy + uy * d / 2) / fh * 100 - 50;
+            this._clampView();
+            this._applyView();
+          };
+        } else {
+          this.setAttribute('data-panning', '');
+          const start = { px: e.clientX, py: e.clientY, x: this._view.x, y: this._view.y };
+          move = (ev) => {
+            this._view.x = start.x + (ev.clientX - start.px) / fw * 100;
+            this._view.y = start.y + (ev.clientY - start.py) / fh * 100;
+            this._clampView();
+            this._applyView();
+          };
+        }
+        const up = () => {
+          try { this._spill.releasePointerCapture(e.pointerId); } catch {}
+          this._spill.removeEventListener('pointermove', move);
+          this._spill.removeEventListener('pointerup', up);
+          this._spill.removeEventListener('pointercancel', up);
+          this.removeAttribute('data-panning');
+          this._dragUp = null;
+        };
+        // Stashed so _exitReframe (Escape / outside-click mid-drag) can
+        // tear the capture + listeners down synchronously.
+        this._dragUp = up;
+        this._spill.addEventListener('pointermove', move);
+        this._spill.addEventListener('pointerup', up);
+        this._spill.addEventListener('pointercancel', up);
+      });
+      // Wheel zoom stays available inside reframe mode as a trackpad nicety —
+      // zooms toward the cursor (offset' = cursor·(1-k) + offset·k).
+      this.addEventListener('wheel', (e) => {
+        if (!this.hasAttribute('data-reframe')) return;
+        e.preventDefault();
+        const r = this.getBoundingClientRect();
+        const cx = (e.clientX - r.left) / r.width * 100 - 50;
+        const cy = (e.clientY - r.top) / r.height * 100 - 50;
+        const prev = this._view.s;
+        const next = clampS(prev * Math.pow(1.0015, -e.deltaY));
+        if (next === prev) return;
+        const k = next / prev;
+        this._view.s = next;
+        this._view.x = cx * (1 - k) + this._view.x * k;
+        this._view.y = cy * (1 - k) + this._view.y * k;
+        this._clampView();
+        this._applyView();
+      }, { passive: false });
+    }
+
+    connectedCallback() {
+      // Warn once per page — an id-less slot works for the session but
+      // cannot persist, and two id-less slots would share nothing.
+      if (!this.id && !ImageSlot._warned) {
+        ImageSlot._warned = true;
+        console.warn('<image-slot> without an id will not persist its dropped image.');
+      }
+      this.addEventListener('dragenter', this);
+      this.addEventListener('dragover', this);
+      this.addEventListener('dragleave', this);
+      this.addEventListener('drop', this);
+      subs.add(this._subFn);
+      // width%/height% in _applyView encode the frame aspect at call time —
+      // a host resize (responsive grid, pane divider) would stretch the
+      // image until the next _render. Re-render on size change: _render()
+      // re-seeds _view from stored before clamp/apply, so a shrink→grow
+      // cycle round-trips instead of ratcheting x/y toward the narrower
+      // frame's clamp range.
+      this._ro = new ResizeObserver(() => this._render());
+      this._ro.observe(this);
+      load();
+      this._render();
+    }
+
+    disconnectedCallback() {
+      subs.delete(this._subFn);
+      this.removeEventListener('dragenter', this);
+      this.removeEventListener('dragover', this);
+      this.removeEventListener('dragleave', this);
+      this.removeEventListener('drop', this);
+      if (this._ro) { this._ro.disconnect(); this._ro = null; }
+      this._exitReframe(false);
+    }
+
+    _enterReframe() {
+      if (this.hasAttribute('data-reframe')) return;
+      this.setAttribute('data-reframe', '');
+      this._applyView();
+      // Close on click outside (the spill handler stopPropagation()s so
+      // in-image drags don't reach this) and on Escape. Listeners are held
+      // on the instance so _exitReframe / disconnectedCallback can detach
+      // exactly what was attached.
+      this._outside = (e) => {
+        if (e.composedPath && e.composedPath().includes(this)) return;
+        this._exitReframe(true);
+      };
+      this._esc = (e) => { if (e.key === 'Escape') this._exitReframe(true); };
+      document.addEventListener('pointerdown', this._outside, true);
+      document.addEventListener('keydown', this._esc, true);
+    }
+
+    _exitReframe(commit) {
+      if (!this.hasAttribute('data-reframe')) return;
+      if (this._dragUp) this._dragUp();
+      this.removeAttribute('data-reframe');
+      this.removeAttribute('data-panning');
+      if (this._outside) document.removeEventListener('pointerdown', this._outside, true);
+      if (this._esc) document.removeEventListener('keydown', this._esc, true);
+      this._outside = this._esc = null;
+      if (commit) this._commitView();
+    }
+
+    attributeChangedCallback() { if (this.shadowRoot) this._render(); }
+
+    // handleEvent — one listener object for all four drag events keeps the
+    // add/remove symmetric and the depth counter correct.
+    handleEvent(e) {
+      if (e.type === 'dragenter' || e.type === 'dragover') {
+        // Without preventDefault the browser never fires 'drop'.
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+        if (e.type === 'dragenter') this._depth++;
+        this.setAttribute('data-over', '');
+      } else if (e.type === 'dragleave') {
+        // dragenter/leave fire for every descendant crossing — count depth
+        // so hovering the icon inside the empty state doesn't flicker.
+        if (--this._depth <= 0) { this._depth = 0; this.removeAttribute('data-over'); }
+      } else if (e.type === 'drop') {
+        e.preventDefault();
+        e.stopPropagation();
+        this._depth = 0;
+        this.removeAttribute('data-over');
+        const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (f) this._ingest(f);
+      }
+    }
+
+    async _ingest(file) {
+      this._setError(null);
+      if (!file || ACCEPT.indexOf(file.type) < 0) {
+        this._setError('Drop a PNG, JPEG, WebP, or AVIF image.');
+        return;
+      }
+      // toDataUrl can take hundreds of ms on a large photo. A Clear or a
+      // newer drop during that window would be clobbered when this await
+      // resumes — bump + capture a generation so stale encodes bail.
+      const gen = ++this._gen;
+      try {
+        const w = this.clientWidth || this.offsetWidth || MAX_DIM;
+        const url = await toDataUrl(file, w);
+        if (gen !== this._gen) return;
+        // Only exit reframe once the new image is in hand — a rejected type
+        // or decode failure leaves the in-progress crop untouched.
+        this._exitReframe(false);
+        const val = { u: url, s: 1, x: 0, y: 0 };
+        setSlot(this.id || '', val);
+        // Keep a session-local copy for id-less slots so the drop still
+        // shows, even though it cannot persist.
+        if (!this.id) { this._local = val; this._render(); }
+      } catch (err) {
+        if (gen !== this._gen) return;
+        this._setError('Could not read that image.');
+        console.warn('<image-slot> ingest failed:', err);
+      }
+    }
+
+    _setError(msg) {
+      if (this._err) { this._err.remove(); this._err = null; }
+      if (!msg) return;
+      const d = document.createElement('div');
+      d.className = 'err'; d.textContent = msg;
+      this.shadowRoot.appendChild(d);
+      this._err = d;
+      setTimeout(() => { if (this._err === d) { d.remove(); this._err = null; } }, 3000);
+    }
+
+    // Reframing (pan/resize) is only meaningful for fit=cover — contain/fill
+    // keep the old object-fit path and double-click is a no-op.
+    _reframes() {
+      return this.hasAttribute('data-filled') &&
+        (this.getAttribute('fit') || 'cover') === 'cover';
+    }
+
+    // Cover-baseline geometry, shared by clamp/apply/resize. Null until the
+    // img has loaded (naturalWidth is 0 before that) or when the slot has no
+    // layout box — ResizeObserver fires with a 0×0 rect under display:none,
+    // and clamping against a degenerate 1×1 frame would silently pull the
+    // stored pan toward zero.
+    _geom() {
+      const iw = this._img.naturalWidth, ih = this._img.naturalHeight;
+      const fw = this.clientWidth, fh = this.clientHeight;
+      if (!iw || !ih || !fw || !fh) return null;
+      return { iw, ih, fw, fh, base: Math.max(fw / iw, fh / ih) };
+    }
+
+    _clampView() {
+      // Pan range on each axis is half the overflow past the frame edge.
+      const g = this._geom();
+      if (!g) return;
+      const mx = Math.max(0, (g.iw * g.base * this._view.s / g.fw - 1) * 50);
+      const my = Math.max(0, (g.ih * g.base * this._view.s / g.fh - 1) * 50);
+      this._view.x = Math.max(-mx, Math.min(mx, this._view.x));
+      this._view.y = Math.max(-my, Math.min(my, this._view.y));
+    }
+
+    _applyView() {
+      const g = this._geom();
+      const fit = this.getAttribute('fit') || 'cover';
+      if (fit !== 'cover' || !g) {
+        // Non-cover, or dimensions not known yet (before img load).
+        this._img.style.width = '100%';
+        this._img.style.height = '100%';
+        this._img.style.left = '50%';
+        this._img.style.top = '50%';
+        this._img.style.objectFit = fit;
+        this._img.style.objectPosition = this.getAttribute('position') || '50% 50%';
+        return;
+      }
+      // Cover baseline: img fills the frame on its tighter axis at s=1, so
+      // pan works immediately on the overflowing axis without zooming first.
+      // Width/height and left/top are all frame-% — depends only on the
+      // frame aspect ratio, so a responsive resize keeps the same crop. The
+      // spill layer mirrors the same box so its corners = image corners.
+      const k = g.base * this._view.s;
+      const w = (g.iw * k / g.fw * 100) + '%';
+      const h = (g.ih * k / g.fh * 100) + '%';
+      const l = (50 + this._view.x) + '%';
+      const t = (50 + this._view.y) + '%';
+      this._img.style.width = w; this._img.style.height = h;
+      this._img.style.left = l; this._img.style.top = t;
+      this._img.style.objectFit = '';
+      this._spill.style.width = w; this._spill.style.height = h;
+      this._spill.style.left = l; this._spill.style.top = t;
+    }
+
+    _commitView() {
+      const v = { s: this._view.s, x: this._view.x, y: this._view.y };
+      if (this._userUrl) v.u = this._userUrl;
+      // Framing-only (no u) persists too so an author-src slot remembers its
+      // crop; clearing the sidecar still falls through to src=.
+      if (this.id) setSlot(this.id, v);
+      else { this._local = v; }
+    }
+
+    _render() {
+      // Shape / mask. Presets use border-radius so the dashed ring can
+      // follow the rounded outline; clip-path is only applied for an
+      // explicit `mask` (the ring is hidden there since a rectangle
+      // dashed border chopped by an arbitrary polygon looks broken).
+      const mask = this.getAttribute('mask');
+      const shape = (this.getAttribute('shape') || 'rounded').toLowerCase();
+      let radius = '';
+      if (shape === 'circle') radius = '50%';
+      else if (shape === 'pill') radius = '9999px';
+      else if (shape === 'rounded') {
+        const n = parseFloat(this.getAttribute('radius'));
+        radius = (Number.isFinite(n) ? n : 12) + 'px';
+      }
+      this._frame.style.borderRadius = mask ? '' : radius;
+      this._frame.style.clipPath = mask || '';
+      this._ring.style.borderRadius = mask ? '' : radius;
+      this._ring.style.display = mask ? 'none' : '';
+
+      // Controls and reframe entry gate on this so share links stay read-only.
+      const editable = !!(window.omelette && window.omelette.writeFile);
+      this.toggleAttribute('data-editable', editable);
+      this._sub.style.display = editable ? '' : 'none';
+
+      // Content. The sidecar is also writable by the agent's write_file
+      // tool, so its value isn't guaranteed canvas-originated — only accept
+      // data:image/ URLs from it. The `src` attribute is author-controlled
+      // (Claude wrote it into the HTML) so it passes through unchanged.
+      let stored = this.id ? getSlot(this.id) : this._local;
+      if (stored && stored.u && !/^data:image\//i.test(stored.u)) stored = null;
+      const srcAttr = this.getAttribute('src') || '';
+      this._userUrl = (stored && stored.u) || null;
+      const url = this._userUrl || srcAttr;
+      // Don't clobber an in-flight reframe with a store-triggered re-render.
+      if (!this.hasAttribute('data-reframe')) {
+        this._view = {
+          s: stored && Number.isFinite(stored.s) ? clampS(stored.s) : 1,
+          x: stored && Number.isFinite(stored.x) ? stored.x : 0,
+          y: stored && Number.isFinite(stored.y) ? stored.y : 0,
+        };
+      }
+      this._cap.textContent = this.getAttribute('placeholder') || 'Drop an image';
+      // Toggle via style.display — the [hidden] attribute alone loses to
+      // the display:flex / display:block rules in the stylesheet above.
+      if (url) {
+        if (this._img.getAttribute('src') !== url) {
+          this._img.src = url;
+          this._ghost.src = url;
+        }
+        this._img.style.display = 'block';
+        this._empty.style.display = 'none';
+        this.setAttribute('data-filled', '');
+        this._clampView();
+        this._applyView();
+      } else {
+        this._img.style.display = 'none';
+        this._img.removeAttribute('src');
+        this._ghost.removeAttribute('src');
+        this._empty.style.display = 'flex';
+        this.removeAttribute('data-filled');
+      }
+    }
+  }
+
+  if (!customElements.get('image-slot')) {
+    customElements.define('image-slot', ImageSlot);
+  }
+})();
+
+</script>
+<script>
+// Sample data for Boz's Morning Command Center.
+// Realistic-but-fake. Swap for live Salesforce / Google sources later.
+window.DASH = {
+  user: "BOZ",
+  greeting: "GOOD MORNING",
+  intention: "Build the machine. Stay in the body.",
+  now: { time: "6:42", ampm: "AM", weather: "Clear", temp: "64°", dateLong: "Sunday, May 31" },
+
+  heroStats: [
+    { label: "Revenue MTD", value: "$128.4K", accent: "orange", delta: "+18%" },
+    { label: "Pipeline", value: "$2.4M", accent: "teal", delta: "+6 deals" },
+    { label: "Goals On Track", value: "78%", accent: "gold", delta: "3 of 4" },
+  ],
+
+  health: {
+    score: 82,
+    rings: [
+      { label: "Steps", value: "8,240", target: "10,000", pct: 82, accent: "teal" },
+      { label: "Gym", value: "2", target: "3 / wk", pct: 67, accent: "orange" },
+      { label: "Breathwork", value: "Done", target: "daily", pct: 100, accent: "gold" },
+    ],
+  },
+
+  wholesaling: {
+    pipeline: "$2.4M",
+    mtd: 128400, goal: 175000,
+    trend: "+18%",
+    stages: [
+      { label: "Under Contract", count: 4, accent: "teal" },
+      { label: "Negotiating", count: 7, accent: "orange" },
+      { label: "Leads", count: 23, accent: "dim" },
+    ],
+  },
+
+  coaching: {
+    published: 7, goal: 10,
+    trend: "+2",
+    // content output by weekday
+    byDay: [
+      { d: "M", v: 2 }, { d: "T", v: 1 }, { d: "W", v: 0 },
+      { d: "T", v: 2 }, { d: "F", v: 1 }, { d: "S", v: 1 }, { d: "S", v: 0 },
+    ],
+  },
+
+  habits: [
+    { id: "breath", name: "Breathwork", note: "Microcosmic Orbit · 20 min, deep", streak: 14, done: true, accent: "teal" },
+    { id: "steps", name: "Steps", note: "8,240 logged today", streak: 6, done: true, accent: "orange" },
+    { id: "gym", name: "Gym Session", note: "Last: Thu, May 28", streak: 3, done: false, accent: "orange" },
+    { id: "ifs", name: "IFS Journaling", note: "Parts check-in", streak: 9, done: true, accent: "teal" },
+  ],
+
+  bizTasks: [
+    { id: "b1", title: "Call title co. — Oak St closing", due: "Today", pri: "high", done: false },
+    { id: "b2", title: "Review JV agreement w/ Marcus", due: "Today", pri: "med", done: false },
+    { id: "b3", title: "Send comps to buyer list", due: "Tue", pri: "low", done: false },
+    { id: "b4", title: "Follow up — Mrs. Alvarez", due: "Wed", pri: "med", done: true },
+  ],
+
+  personalTasks: [
+    { id: "p1", title: "Order anniversary gift", due: "Today", pri: "high", done: false },
+    { id: "p2", title: "Book flights — July trip", due: "Mon", pri: "low", done: false },
+    { id: "p3", title: "Schedule dentist", due: "—", pri: "low", done: false },
+    { id: "p4", title: "Renew passport", due: "Jun 10", pri: "med", done: false },
+  ],
+
+  realEstate: [
+    { addr: "1428 Oak St", buyer: "J. Alvarez", status: "Active", amount: "$1,240/mo", due: "Jun 1" },
+    { addr: "705 Maple Dr", buyer: "T. Nguyen", status: "Active", amount: "$1,510/mo", due: "Jun 3" },
+    { addr: "22 Linden Ave", buyer: "K. Brooks", status: "Pending", amount: "$980/mo", due: "Follow up Jun 5" },
+    { addr: "88 Cedar Ln", buyer: "R. Diaz", status: "Active", amount: "$1,120/mo", due: "Jun 1" },
+    { addr: "3 Birchwood Ct", buyer: "—", status: "Lead", amount: "—", due: "Call back" },
+  ],
+
+  // current week — Sunday May 31 2026 is "today"
+  week: [
+    { day: "MON", date: 25, events: [{ t: "9a", label: "Buyer calls" }] },
+    { day: "TUE", date: 26, events: [{ t: "11a", label: "Walkthrough — Maple" }] },
+    { day: "WED", date: 27, events: [{ t: "2p", label: "Coaching record" }] },
+    { day: "THU", date: 28, events: [{ t: "7a", label: "Gym" }, { t: "4p", label: "JV sync" }] },
+    { day: "FRI", date: 29, events: [{ t: "10a", label: "Title co." }] },
+    { day: "SAT", date: 30, events: [] },
+    { day: "SUN", date: 31, today: true, events: [{ t: "8a", label: "Breathwork" }, { t: "6p", label: "Family dinner" }] },
+  ],
+
+  importantDates: [
+    { label: "Oak St Closing", date: "Jun 6", days: 6, accent: "orange", plan: "Confirm wire + walkthrough" },
+    { label: "Maya's Birthday", date: "Jun 14", days: 14, accent: "teal", plan: "Book venue, order cake" },
+    { label: "Coaching Cohort Launch", date: "Jul 1", days: 31, accent: "gold", plan: "Finish 3 modules, email list" },
+  ],
+
+  quotes: [
+    "Discipline is the bridge between goals and accomplishment.",
+    "The body keeps the score — so keep it strong.",
+    "Move first. Motivation follows motion.",
+    "You don't rise to your goals; you fall to your systems.",
+  ],
+
+  weeklyGoals: [
+    { label: "IFS journaling — daily", accent: "teal", done: true },
+    { label: "Breathwork streak → 21", accent: "gold", done: false },
+    { label: "Ship 3 coaching videos", accent: "orange", done: false },
+    { label: "Date night with partner", accent: "teal", done: false },
+  ],
+};
+
+</script>
+<script type="text/babel" data-presets="react">
+;(function(){
+
+/* BEGIN USAGE */
+// tweaks-panel.jsx
+// Reusable Tweaks shell + form-control helpers.
+// Exports (to window): useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider,
+//   TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton.
+//
+// Owns the host protocol (listens for __activate_edit_mode / __deactivate_edit_mode,
+// posts __edit_mode_available / __edit_mode_set_keys / __edit_mode_dismissed) so
+// individual prototypes don't re-roll it. Ships a consistent set of controls so you
+// don't hand-draw <input type="range">, segmented radios, steppers, etc.
+//
+// Usage (in an HTML file that loads React + Babel):
+//
+//   const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+//     "primaryColor": "#D97757",
+//     "palette": ["#D97757", "#29261b", "#f6f4ef"],
+//     "fontSize": 16,
+//     "density": "regular",
+//     "dark": false
+//   }/*EDITMODE-END*/;
+//
+//   function App() {
+//     const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+//     return (
+//       <div style={{ fontSize: t.fontSize, color: t.primaryColor }}>
+//         Hello
+//         <TweaksPanel>
+//           <TweakSection label="Typography" />
+//           <TweakSlider label="Font size" value={t.fontSize} min={10} max={32} unit="px"
+//                        onChange={(v) => setTweak('fontSize', v)} />
+//           <TweakRadio  label="Density" value={t.density}
+//                        options={['compact', 'regular', 'comfy']}
+//                        onChange={(v) => setTweak('density', v)} />
+//           <TweakSection label="Theme" />
+//           <TweakColor  label="Primary" value={t.primaryColor}
+//                        options={['#D97757', '#2A6FDB', '#1F8A5B', '#7A5AE0']}
+//                        onChange={(v) => setTweak('primaryColor', v)} />
+//           <TweakColor  label="Palette" value={t.palette}
+//                        options={[['#D97757', '#29261b', '#f6f4ef'],
+//                                  ['#475569', '#0f172a', '#f1f5f9']]}
+//                        onChange={(v) => setTweak('palette', v)} />
+//           <TweakToggle label="Dark mode" value={t.dark}
+//                        onChange={(v) => setTweak('dark', v)} />
+//         </TweaksPanel>
+//       </div>
+//     );
+//   }
+//
+// TweakRadio is the segmented control for 2–3 short options (auto-falls-back to
+// TweakSelect past ~16/~10 chars per label); reach for TweakSelect directly when
+// options are many or long. For color tweaks always curate 3-4 options rather than
+// a free picker; an option can also be a whole 2–5 color palette (the stored value
+// is the array). The Tweak* controls are a floor, not a ceiling — build custom
+// controls inside the panel if a tweak calls for UI they don't cover.
+/* END USAGE */
+// ─────────────────────────────────────────────────────────────────────────────
+
+const __TWEAKS_STYLE = `
+  .twk-panel{position:fixed;right:16px;bottom:16px;z-index:2147483646;width:280px;
+    max-height:calc(100vh - 32px);display:flex;flex-direction:column;
+    transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right;
+    background:rgba(250,249,247,.78);color:#29261b;
+    -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
+    border:.5px solid rgba(255,255,255,.6);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 12px 40px rgba(0,0,0,.18);
+    font:11.5px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;overflow:hidden}
+  .twk-hd{display:flex;align-items:center;justify-content:space-between;
+    padding:10px 8px 10px 14px;cursor:move;user-select:none}
+  .twk-hd b{font-size:12px;font-weight:600;letter-spacing:.01em}
+  .twk-x{appearance:none;border:0;background:transparent;color:rgba(41,38,27,.55);
+    width:22px;height:22px;border-radius:6px;cursor:default;font-size:13px;line-height:1}
+  .twk-x:hover{background:rgba(0,0,0,.06);color:#29261b}
+  .twk-body{padding:2px 14px 14px;display:flex;flex-direction:column;gap:10px;
+    overflow-y:auto;overflow-x:hidden;min-height:0;
+    scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.15) transparent}
+  .twk-body::-webkit-scrollbar{width:8px}
+  .twk-body::-webkit-scrollbar-track{background:transparent;margin:2px}
+  .twk-body::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:4px;
+    border:2px solid transparent;background-clip:content-box}
+  .twk-body::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.25);
+    border:2px solid transparent;background-clip:content-box}
+  .twk-row{display:flex;flex-direction:column;gap:5px}
+  .twk-row-h{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
+  .twk-lbl{display:flex;justify-content:space-between;align-items:baseline;
+    color:rgba(41,38,27,.72)}
+  .twk-lbl>span:first-child{font-weight:500}
+  .twk-val{color:rgba(41,38,27,.5);font-variant-numeric:tabular-nums}
+
+  .twk-sect{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+    color:rgba(41,38,27,.45);padding:10px 0 0}
+  .twk-sect:first-child{padding-top:0}
+
+  .twk-field{appearance:none;box-sizing:border-box;width:100%;min-width:0;height:26px;padding:0 8px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:7px;
+    background:rgba(255,255,255,.6);color:inherit;font:inherit;outline:none}
+  .twk-field:focus{border-color:rgba(0,0,0,.25);background:rgba(255,255,255,.85)}
+  select.twk-field{padding-right:22px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='rgba(0,0,0,.5)' d='M0 0h10L5 6z'/></svg>");
+    background-repeat:no-repeat;background-position:right 8px center}
+
+  .twk-slider{appearance:none;-webkit-appearance:none;width:100%;height:4px;margin:6px 0;
+    border-radius:999px;background:rgba(0,0,0,.12);outline:none}
+  .twk-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:14px;height:14px;border-radius:50%;background:#fff;
+    border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+  .twk-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;
+    background:#fff;border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+
+  .twk-seg{position:relative;display:flex;padding:2px;border-radius:8px;
+    background:rgba(0,0,0,.06);user-select:none}
+  .twk-seg-thumb{position:absolute;top:2px;bottom:2px;border-radius:6px;
+    background:rgba(255,255,255,.9);box-shadow:0 1px 2px rgba(0,0,0,.12);
+    transition:left .15s cubic-bezier(.3,.7,.4,1),width .15s}
+  .twk-seg.dragging .twk-seg-thumb{transition:none}
+  .twk-seg button{appearance:none;position:relative;z-index:1;flex:1;border:0;
+    background:transparent;color:inherit;font:inherit;font-weight:500;min-height:22px;
+    border-radius:6px;cursor:default;padding:4px 6px;line-height:1.2;
+    overflow-wrap:anywhere}
+
+  .twk-toggle{position:relative;width:32px;height:18px;border:0;border-radius:999px;
+    background:rgba(0,0,0,.15);transition:background .15s;cursor:default;padding:0}
+  .twk-toggle[data-on="1"]{background:#34c759}
+  .twk-toggle i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+  .twk-toggle[data-on="1"] i{transform:translateX(14px)}
+
+  .twk-num{display:flex;align-items:center;box-sizing:border-box;min-width:0;height:26px;padding:0 0 0 8px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:7px;background:rgba(255,255,255,.6)}
+  .twk-num-lbl{font-weight:500;color:rgba(41,38,27,.6);cursor:ew-resize;
+    user-select:none;padding-right:8px}
+  .twk-num input{flex:1;min-width:0;height:100%;border:0;background:transparent;
+    font:inherit;font-variant-numeric:tabular-nums;text-align:right;padding:0 8px 0 0;
+    outline:none;color:inherit;-moz-appearance:textfield}
+  .twk-num input::-webkit-inner-spin-button,.twk-num input::-webkit-outer-spin-button{
+    -webkit-appearance:none;margin:0}
+  .twk-num-unit{padding-right:8px;color:rgba(41,38,27,.45)}
+
+  .twk-btn{appearance:none;height:26px;padding:0 12px;border:0;border-radius:7px;
+    background:rgba(0,0,0,.78);color:#fff;font:inherit;font-weight:500;cursor:default}
+  .twk-btn:hover{background:rgba(0,0,0,.88)}
+  .twk-btn.secondary{background:rgba(0,0,0,.06);color:inherit}
+  .twk-btn.secondary:hover{background:rgba(0,0,0,.1)}
+
+  .twk-swatch{appearance:none;-webkit-appearance:none;width:56px;height:22px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:6px;padding:0;cursor:default;
+    background:transparent;flex-shrink:0}
+  .twk-swatch::-webkit-color-swatch-wrapper{padding:0}
+  .twk-swatch::-webkit-color-swatch{border:0;border-radius:5.5px}
+  .twk-swatch::-moz-color-swatch{border:0;border-radius:5.5px}
+
+  .twk-chips{display:flex;gap:6px}
+  .twk-chip{position:relative;appearance:none;flex:1;min-width:0;height:46px;
+    padding:0;border:0;border-radius:6px;overflow:hidden;cursor:default;
+    box-shadow:0 0 0 .5px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.06);
+    transition:transform .12s cubic-bezier(.3,.7,.4,1),box-shadow .12s}
+  .twk-chip:hover{transform:translateY(-1px);
+    box-shadow:0 0 0 .5px rgba(0,0,0,.18),0 4px 10px rgba(0,0,0,.12)}
+  .twk-chip[data-on="1"]{box-shadow:0 0 0 1.5px rgba(0,0,0,.85),
+    0 2px 6px rgba(0,0,0,.15)}
+  .twk-chip>span{position:absolute;top:0;bottom:0;right:0;width:34%;
+    display:flex;flex-direction:column;box-shadow:-1px 0 0 rgba(0,0,0,.1)}
+  .twk-chip>span>i{flex:1;box-shadow:0 -1px 0 rgba(0,0,0,.1)}
+  .twk-chip>span>i:first-child{box-shadow:none}
+  .twk-chip svg{position:absolute;top:6px;left:6px;width:13px;height:13px;
+    filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
+`;
+
+// ── useTweaks ───────────────────────────────────────────────────────────────
+// Single source of truth for tweak values. setTweak persists via the host
+// (__edit_mode_set_keys → host rewrites the EDITMODE block on disk).
+function useTweaks(defaults) {
+  const [values, setValues] = React.useState(defaults);
+  // Accepts either setTweak('key', value) or setTweak({ key: value, ... }) so a
+  // useState-style call doesn't write a "[object Object]" key into the persisted
+  // JSON block.
+  const setTweak = React.useCallback((keyOrEdits, val) => {
+    const edits = typeof keyOrEdits === 'object' && keyOrEdits !== null
+      ? keyOrEdits : { [keyOrEdits]: val };
+    setValues((prev) => ({ ...prev, ...edits }));
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits }, '*');
+    // Same-window signal so in-page listeners (deck-stage rail thumbnails)
+    // can react — the parent message only reaches the host, not peers.
+    window.dispatchEvent(new CustomEvent('tweakchange', { detail: edits }));
+  }, []);
+  return [values, setTweak];
+}
+
+// ── TweaksPanel ─────────────────────────────────────────────────────────────
+// Floating shell. Registers the protocol listener BEFORE announcing
+// availability — if the announce ran first, the host's activate could land
+// before our handler exists and the toolbar toggle would silently no-op.
+// The close button posts __edit_mode_dismissed so the host's toolbar toggle
+// flips off in lockstep; the host echoes __deactivate_edit_mode back which
+// is what actually hides the panel.
+function TweaksPanel({ title = 'Tweaks', children }) {
+  const [open, setOpen] = React.useState(false);
+  const dragRef = React.useRef(null);
+  const offsetRef = React.useRef({ x: 16, y: 16 });
+  const PAD = 16;
+
+  const clampToViewport = React.useCallback(() => {
+    const panel = dragRef.current;
+    if (!panel) return;
+    const w = panel.offsetWidth, h = panel.offsetHeight;
+    const maxRight = Math.max(PAD, window.innerWidth - w - PAD);
+    const maxBottom = Math.max(PAD, window.innerHeight - h - PAD);
+    offsetRef.current = {
+      x: Math.min(maxRight, Math.max(PAD, offsetRef.current.x)),
+      y: Math.min(maxBottom, Math.max(PAD, offsetRef.current.y)),
+    };
+    panel.style.right = offsetRef.current.x + 'px';
+    panel.style.bottom = offsetRef.current.y + 'px';
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    clampToViewport();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', clampToViewport);
+      return () => window.removeEventListener('resize', clampToViewport);
+    }
+    const ro = new ResizeObserver(clampToViewport);
+    ro.observe(document.documentElement);
+    return () => ro.disconnect();
+  }, [open, clampToViewport]);
+
+  React.useEffect(() => {
+    const onMsg = (e) => {
+      const t = e?.data?.type;
+      if (t === '__activate_edit_mode') setOpen(true);
+      else if (t === '__deactivate_edit_mode') setOpen(false);
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const dismiss = () => {
+    setOpen(false);
+    window.parent.postMessage({ type: '__edit_mode_dismissed' }, '*');
+  };
+
+  const onDragStart = (e) => {
+    const panel = dragRef.current;
+    if (!panel) return;
+    const r = panel.getBoundingClientRect();
+    const sx = e.clientX, sy = e.clientY;
+    const startRight = window.innerWidth - r.right;
+    const startBottom = window.innerHeight - r.bottom;
+    const move = (ev) => {
+      offsetRef.current = {
+        x: startRight - (ev.clientX - sx),
+        y: startBottom - (ev.clientY - sy),
+      };
+      clampToViewport();
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
+  if (!open) return null;
+  return (
+    <>
+      <style>{__TWEAKS_STYLE}</style>
+      <div ref={dragRef} className="twk-panel" data-omelette-chrome=""
+           style={{ right: offsetRef.current.x, bottom: offsetRef.current.y }}>
+        <div className="twk-hd" onMouseDown={onDragStart}>
+          <b>{title}</b>
+          <button className="twk-x" aria-label="Close tweaks"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={dismiss}>✕</button>
+        </div>
+        <div className="twk-body">
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Layout helpers ──────────────────────────────────────────────────────────
+
+function TweakSection({ label, children }) {
+  return (
+    <>
+      <div className="twk-sect">{label}</div>
+      {children}
+    </>
+  );
+}
+
+function TweakRow({ label, value, children, inline = false }) {
+  return (
+    <div className={inline ? 'twk-row twk-row-h' : 'twk-row'}>
+      <div className="twk-lbl">
+        <span>{label}</span>
+        {value != null && <span className="twk-val">{value}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ── Controls ────────────────────────────────────────────────────────────────
+
+function TweakSlider({ label, value, min = 0, max = 100, step = 1, unit = '', onChange }) {
+  return (
+    <TweakRow label={label} value={`${value}${unit}`}>
+      <input type="range" className="twk-slider" min={min} max={max} step={step}
+             value={value} onChange={(e) => onChange(Number(e.target.value))} />
+    </TweakRow>
+  );
+}
+
+function TweakToggle({ label, value, onChange }) {
+  return (
+    <div className="twk-row twk-row-h">
+      <div className="twk-lbl"><span>{label}</span></div>
+      <button type="button" className="twk-toggle" data-on={value ? '1' : '0'}
+              role="switch" aria-checked={!!value}
+              onClick={() => onChange(!value)}><i /></button>
+    </div>
+  );
+}
+
+function TweakRadio({ label, value, options, onChange }) {
+  const trackRef = React.useRef(null);
+  const [dragging, setDragging] = React.useState(false);
+  // The active value is read by pointer-move handlers attached for the lifetime
+  // of a drag — ref it so a stale closure doesn't fire onChange for every move.
+  const valueRef = React.useRef(value);
+  valueRef.current = value;
+
+  // Segments wrap mid-word once per-segment width runs out. The track is
+  // ~248px (280 panel − 28 body pad − 4 seg pad), each button loses 12px
+  // to its own padding, and 11.5px system-ui averages ~6.3px/char — so 2
+  // options fit ~16 chars each, 3 fit ~10. Past that (or >3 options), fall
+  // back to a dropdown rather than wrap.
+  const labelLen = (o) => String(typeof o === 'object' ? o.label : o).length;
+  const maxLen = options.reduce((m, o) => Math.max(m, labelLen(o)), 0);
+  const fitsAsSegments = maxLen <= ({ 2: 16, 3: 10 }[options.length] ?? 0);
+  if (!fitsAsSegments) {
+    // <select> emits strings — map back to the original option value so the
+    // fallback stays type-preserving (numbers, booleans) like the segment path.
+    const resolve = (s) => {
+      const m = options.find((o) => String(typeof o === 'object' ? o.value : o) === s);
+      return m === undefined ? s : typeof m === 'object' ? m.value : m;
+    };
+    return <TweakSelect label={label} value={value} options={options}
+                        onChange={(s) => onChange(resolve(s))} />;
+  }
+  const opts = options.map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
+  const idx = Math.max(0, opts.findIndex((o) => o.value === value));
+  const n = opts.length;
+
+  const segAt = (clientX) => {
+    const r = trackRef.current.getBoundingClientRect();
+    const inner = r.width - 4;
+    const i = Math.floor(((clientX - r.left - 2) / inner) * n);
+    return opts[Math.max(0, Math.min(n - 1, i))].value;
+  };
+
+  const onPointerDown = (e) => {
+    setDragging(true);
+    const v0 = segAt(e.clientX);
+    if (v0 !== valueRef.current) onChange(v0);
+    const move = (ev) => {
+      if (!trackRef.current) return;
+      const v = segAt(ev.clientX);
+      if (v !== valueRef.current) onChange(v);
+    };
+    const up = () => {
+      setDragging(false);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  return (
+    <TweakRow label={label}>
+      <div ref={trackRef} role="radiogroup" onPointerDown={onPointerDown}
+           className={dragging ? 'twk-seg dragging' : 'twk-seg'}>
+        <div className="twk-seg-thumb"
+             style={{ left: `calc(2px + ${idx} * (100% - 4px) / ${n})`,
+                      width: `calc((100% - 4px) / ${n})` }} />
+        {opts.map((o) => (
+          <button key={o.value} type="button" role="radio" aria-checked={o.value === value}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </TweakRow>
+  );
+}
+
+function TweakSelect({ label, value, options, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <select className="twk-field" value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map((o) => {
+          const v = typeof o === 'object' ? o.value : o;
+          const l = typeof o === 'object' ? o.label : o;
+          return <option key={v} value={v}>{l}</option>;
+        })}
+      </select>
+    </TweakRow>
+  );
+}
+
+function TweakText({ label, value, placeholder, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <input className="twk-field" type="text" value={value} placeholder={placeholder}
+             onChange={(e) => onChange(e.target.value)} />
+    </TweakRow>
+  );
+}
+
+function TweakNumber({ label, value, min, max, step = 1, unit = '', onChange }) {
+  const clamp = (n) => {
+    if (min != null && n < min) return min;
+    if (max != null && n > max) return max;
+    return n;
+  };
+  const startRef = React.useRef({ x: 0, val: 0 });
+  const onScrubStart = (e) => {
+    e.preventDefault();
+    startRef.current = { x: e.clientX, val: value };
+    const decimals = (String(step).split('.')[1] || '').length;
+    const move = (ev) => {
+      const dx = ev.clientX - startRef.current.x;
+      const raw = startRef.current.val + dx * step;
+      const snapped = Math.round(raw / step) * step;
+      onChange(clamp(Number(snapped.toFixed(decimals))));
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+  return (
+    <div className="twk-num">
+      <span className="twk-num-lbl" onPointerDown={onScrubStart}>{label}</span>
+      <input type="number" value={value} min={min} max={max} step={step}
+             onChange={(e) => onChange(clamp(Number(e.target.value)))} />
+      {unit && <span className="twk-num-unit">{unit}</span>}
+    </div>
+  );
+}
+
+// Relative-luminance contrast pick — checkmarks drawn over a swatch need to
+// read on both #111 and #fafafa without per-option configuration. Hex input
+// only (#rgb / #rrggbb); named or rgb()/hsl() colors fall through to "light".
+function __twkIsLight(hex) {
+  const h = String(hex).replace('#', '');
+  const x = h.length === 3 ? h.replace(/./g, (c) => c + c) : h.padEnd(6, '0');
+  const n = parseInt(x.slice(0, 6), 16);
+  if (Number.isNaN(n)) return true;
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return r * 299 + g * 587 + b * 114 > 148000;
+}
+
+const __TwkCheck = ({ light }) => (
+  <svg viewBox="0 0 14 14" aria-hidden="true">
+    <path d="M3 7.2 5.8 10 11 4.2" fill="none" strokeWidth="2.2"
+          strokeLinecap="round" strokeLinejoin="round"
+          stroke={light ? 'rgba(0,0,0,.78)' : '#fff'} />
+  </svg>
+);
+
+// TweakColor — curated color/palette picker. Each option is either a single
+// hex string or an array of 1-5 hex strings; the card adapts — a lone color
+// renders solid, a palette renders colors[0] as the hero (left ~2/3) with the
+// rest stacked in a sharp column on the right. onChange emits the
+// option in the shape it was passed (string stays string, array stays array).
+// Without options it falls back to the native color input for back-compat.
+function TweakColor({ label, value, options, onChange }) {
+  if (!options || !options.length) {
+    return (
+      <div className="twk-row twk-row-h">
+        <div className="twk-lbl"><span>{label}</span></div>
+        <input type="color" className="twk-swatch" value={value}
+               onChange={(e) => onChange(e.target.value)} />
+      </div>
+    );
+  }
+  // Native <input type=color> emits lowercase hex per the HTML spec, so
+  // compare case-insensitively. String() guards JSON.stringify(undefined),
+  // which returns the primitive undefined (no .toLowerCase).
+  const key = (o) => String(JSON.stringify(o)).toLowerCase();
+  const cur = key(value);
+  return (
+    <TweakRow label={label}>
+      <div className="twk-chips" role="radiogroup">
+        {options.map((o, i) => {
+          const colors = Array.isArray(o) ? o : [o];
+          const [hero, ...rest] = colors;
+          const sup = rest.slice(0, 4);
+          const on = key(o) === cur;
+          return (
+            <button key={i} type="button" className="twk-chip" role="radio"
+                    aria-checked={on} data-on={on ? '1' : '0'}
+                    aria-label={colors.join(', ')} title={colors.join(' · ')}
+                    style={{ background: hero }}
+                    onClick={() => onChange(o)}>
+              {sup.length > 0 && (
+                <span>
+                  {sup.map((c, j) => <i key={j} style={{ background: c }} />)}
+                </span>
+              )}
+              {on && <__TwkCheck light={__twkIsLight(hero)} />}
+            </button>
+          );
+        })}
+      </div>
+    </TweakRow>
+  );
+}
+
+function TweakButton({ label, onClick, secondary = false }) {
+  return (
+    <button type="button" className={secondary ? 'twk-btn secondary' : 'twk-btn'}
+            onClick={onClick}>{label}</button>
+  );
+}
+
+Object.assign(window, {
+  useTweaks, TweaksPanel, TweakSection, TweakRow,
+  TweakSlider, TweakToggle, TweakRadio, TweakSelect,
+  TweakText, TweakNumber, TweakColor, TweakButton,
+});
+
+})();
+</script>
+<script type="text/babel" data-presets="react">
+;(function(){
+/* global React */
+const { useState } = React;
+
+const ICON = {
+  chev: (p) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" {...p}><path d="M9 6l6 6-6 6"/></svg>,
+  home: (p) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg>,
+  check: (p) => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" {...p}><path d="M5 12l5 5L20 6"/></svg>,
+  bolt: (p) => <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" {...p}><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg>,
+};
+
+function CardHead({ label, accent, right }) {
+  return (
+    <div className="card-head">
+      <div className={"label acc-" + accent}>
+        <span className="led" /> {label}
+      </div>
+      {right}
+    </div>
+  );
+}
+
+/* ---------- Hero ---------- */
+const COAST_SVG =
+  "<svg xmlns='http://www.w3.org/2000/svg' width='800' height='460'>" +
+  "<defs>" +
+  "<linearGradient id='sky' x1='0' y1='0' x2='0' y2='1'>" +
+  "<stop offset='0' stop-color='#CFE3F2'/><stop offset='0.55' stop-color='#A7C8E6'/><stop offset='1' stop-color='#86AED6'/>" +
+  "</linearGradient>" +
+  "<linearGradient id='sea' x1='0' y1='0' x2='0' y2='1'>" +
+  "<stop offset='0' stop-color='#6FA0B4'/><stop offset='1' stop-color='#3E6E82'/>" +
+  "</linearGradient></defs>" +
+  "<rect width='800' height='300' fill='url(#sky)'/>" +
+  "<circle cx='575' cy='196' r='52' fill='#F3ECD9' opacity='0.85'/>" +
+  "<rect y='268' width='800' height='118' fill='url(#sea)'/>" +
+  "<rect y='376' width='800' height='90' fill='#E9DEC4'/>" +
+  "<ellipse cx='400' cy='376' rx='540' ry='24' fill='#DACFB2' opacity='0.6'/>" +
+  "</svg>";
+const COAST_SRC = "data:image/svg+xml," + encodeURIComponent(COAST_SVG);
+
+function Hero({ d, skin }) {
+  const stats = (
+    <div className="stats">
+      {d.heroStats.map((s, i) => (
+        <div className={"stat acc-" + s.accent} key={i}>
+          <div className="num v">{s.value}</div>
+          <div className="l">{s.label}</div>
+          <div className="d">{s.delta}</div>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (skin === "light") {
+    return (
+      <div className="card col2 acc-teal hero-cali">
+        <image-slot id="coastline-hero" src={COAST_SRC} fit="cover" placeholder="Drop a California coastline photo"></image-slot>
+        <div className="scrim"></div>
+        <div className="photo-hint">Drag your own photo →</div>
+        <div className="content">
+          <div>
+            <div className="label eyebrow">{d.greeting}</div>
+            <div className="date">{d.now.dateLong} · {d.now.time}{d.now.ampm.toLowerCase()} · {d.now.weather} {d.now.temp}</div>
+          </div>
+          <div className="name">{d.user}.</div>
+          <div className="intent">{d.intention}</div>
+          {stats}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card col2 acc-teal hero">
+      <div>
+        <div className="label eyebrow">{d.greeting}</div>
+        <div className="date">{d.now.dateLong} · {d.now.time}{d.now.ampm.toLowerCase()} · {d.now.weather} {d.now.temp}</div>
+      </div>
+      <div className="num name acc-teal">{d.user}.</div>
+      <div className="intent">{d.intention}</div>
+      {stats}
+    </div>
+  );
+}
+
+/* ---------- Health rings ---------- */
+function Rings({ d }) {
+  const acc = { teal: "var(--teal)", orange: "var(--orange)", gold: "var(--gold)" };
+  const radii = [72, 56, 40];
+  const cx = 84, cy = 84;
+  return (
+    <div className="card acc-teal">
+      <CardHead label="Health HQ" accent="teal" right={<div className="num" style={{ fontSize: 12, color: "var(--text-dim)" }}>SCORE</div>} />
+      <div className="rings-wrap">
+        <div style={{ position: "relative", width: 168, height: 168 }}>
+          <svg className="ring-svg" viewBox="0 0 168 168">
+            {d.rings.map((r, i) => {
+              const R = radii[i], C = 2 * Math.PI * R;
+              const col = acc[r.accent];
+              return (
+                <g key={i} transform={`rotate(-90 ${cx} ${cy})`}>
+                  <circle cx={cx} cy={cy} r={R} fill="none" stroke="var(--track)" strokeWidth="9" />
+                  <circle cx={cx} cy={cy} r={R} fill="none" stroke={col} strokeWidth="9" strokeLinecap="round"
+                    strokeDasharray={C} strokeDashoffset={C * (1 - r.pct / 100)}
+                    style={{ filter: "drop-shadow(0 0 calc(6px*var(--gm)) " + col + ")" }} />
+                </g>
+              );
+            })}
+          </svg>
+          <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", flexDirection: "column" }}>
+            <div style={{ textAlign: "center" }}>
+              <div className="num ring-center acc-teal glow-text">{d.score}</div>
+              <div className="ring-center-sub">Composite</div>
+            </div>
+          </div>
+        </div>
+        <div className="ring-legend">
+          {d.rings.map((r, i) => (
+            <div className={"row acc-" + r.accent} key={i}>
+              <span className="led" />
+              <span className="nm">{r.label}</span>
+              <span className="num vl">{r.value}<span style={{ color: "var(--text-dim)" }}> / {r.target}</span></span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Wholesaling KPI ---------- */
+function Wholesaling({ d }) {
+  const pct = Math.round((d.mtd / d.goal) * 100);
+  return (
+    <div className="card acc-orange">
+      <CardHead label="Wholesaling" accent="orange" right={<span className="trend acc-orange">▲ {d.trend}</span>} />
+      <div className="num kpi-big acc-orange glow-text">{d.pipeline}</div>
+      <div className="kpi-sub">Pipeline Potential</div>
+      <div className="bar acc-orange"><span style={{ width: pct + "%" }} /></div>
+      <div className="bar-meta"><span>MTD Revenue</span><span><b>${(d.mtd/1000).toFixed(1)}K</b> / ${(d.goal/1000)}K</span></div>
+      <div className="stages">
+        {d.stages.map((s, i) => (
+          <div className={"stage-pill acc-" + s.accent} key={i}>
+            <div className="num c" style={{ color: s.accent === "dim" ? "var(--text-mid)" : "var(--acc)" }}>{s.count}</div>
+            <div className="n">{s.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Coaching KPI ---------- */
+function Coaching({ d }) {
+  const pct = Math.round((d.published / d.goal) * 100);
+  const max = Math.max(...d.byDay.map(x => x.v), 1);
+  return (
+    <div className="card acc-gold">
+      <CardHead label="Coaching" accent="gold" right={<span className="trend acc-gold">▲ {d.trend} this wk</span>} />
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+        <div className="num kpi-big acc-gold glow-text">{d.published}</div>
+        <div style={{ color: "var(--text-dim)" }} className="num">/ {d.goal}</div>
+      </div>
+      <div className="kpi-sub">Content Published · MTD</div>
+      <div className="bar acc-gold"><span style={{ width: pct + "%" }} /></div>
+      <div className="bar-meta"><span>Monthly goal</span><span><b>{pct}%</b></span></div>
+      <div className="minibars acc-gold">
+        {d.byDay.map((b, i) => (
+          <div className={"b" + (b.v === 0 ? " zero" : "")} key={i}>
+            <i style={{ height: Math.max(6, (b.v / max) * 44) + "px" }} />
+            <span>{b.d}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Habit tracker ---------- */
+function Habits({ d }) {
+  const [state, setState] = useState(() => Object.fromEntries(d.map(h => [h.id, h.done])));
+  const toggle = (id) => setState(s => ({ ...s, [id]: !s[id] }));
+  return (
+    <div className="card col2 acc-teal">
+      <CardHead label="Daily Practices" accent="teal" right={
+        <span className="num" style={{ fontSize: 12, color: "var(--text-dim)" }}>
+          {Object.values(state).filter(Boolean).length}/{d.length} DONE
+        </span>} />
+      <div className="habits">
+        {d.map(h => {
+          const done = state[h.id];
+          const streak = h.streak + (done && !h.done ? 1 : (!done && h.done ? -1 : 0));
+          return (
+            <div className={"habit acc-" + h.accent + (done ? " done" : "")} key={h.id} onClick={() => toggle(h.id)}>
+              <div className="check">{ICON.check()}</div>
+              <div style={{ minWidth: 0 }}>
+                <div className="nm">{h.name}</div>
+                <div className="nt">{h.note}</div>
+              </div>
+              <div className="streak">
+                <div className="num s">{streak}</div>
+                <div className="sl">day streak</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Task list ---------- */
+function TaskList({ label, accent, items }) {
+  const [done, setDone] = useState(() => Object.fromEntries(items.map(t => [t.id, t.done])));
+  const toggle = (id) => setDone(s => ({ ...s, [id]: !s[id] }));
+  const open = items.filter(t => !done[t.id]).length;
+  return (
+    <div className={"card acc-" + accent}>
+      <CardHead label={label} accent={accent} right={<span className="num" style={{ fontSize: 12, color: "var(--text-dim)" }}>{open} OPEN</span>} />
+      <div className="tasks">
+        {items.map(t => (
+          <div className={"task" + (done[t.id] ? " done" : "")} key={t.id} onClick={() => toggle(t.id)}>
+            <div className="box">{ICON.check({ width: 12, height: 12 })}</div>
+            <span className={"pri pri-" + t.pri} />
+            <span className="tt">{t.title}</span>
+            <span className="due">{t.due}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Real estate ---------- */
+function RealEstate({ d }) {
+  const acc = { Active: "teal", Pending: "gold", Lead: "dim" };
+  return (
+    <div className="card col2 acc-teal">
+      <CardHead label="Contract for Deed" accent="teal" right={<span className="num" style={{ fontSize: 12, color: "var(--text-dim)" }}>{d.length} PROPERTIES</span>} />
+      <div>
+        {d.map((r, i) => (
+          <div className={"re-row acc-" + acc[r.status]} key={i}>
+            <div className="re-ico">{ICON.home()}</div>
+            <div className="re-main">
+              <div className="a">{r.addr}</div>
+              <div className="b">{r.buyer} · {r.due}</div>
+            </div>
+            <span className={"status-tag acc-" + acc[r.status]}>{r.status}</span>
+            <div className="re-amt"><div className="num m">{r.amount}</div></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Weekly calendar ---------- */
+function WeekStrip({ d }) {
+  return (
+    <div className="card col4 acc-teal">
+      <CardHead label="This Week" accent="teal" />
+      <div className="week">
+        {d.map((day, i) => (
+          <div className={"day" + (day.today ? " today" : "")} key={i}>
+            <div className="dl">{day.day}</div>
+            <div className="num dn">{day.date}</div>
+            {day.events.map((e, j) => (
+              <div className="ev" key={j}><b>{e.t}</b>{e.label}</div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Important dates ---------- */
+function ImportantDates({ d }) {
+  return (
+    <div className="card acc-gold">
+      <CardHead label="On the Horizon" accent="gold" />
+      <div className="dates">
+        {d.map((it, i) => (
+          <div className={"drow acc-" + it.accent} key={i}>
+            <div className="dcount"><div className="num n">{it.days}</div><div className="u">days</div></div>
+            <div className="dmain">
+              <div className="l">{it.label} <span className="dt">· {it.date}</span></div>
+              <div className="p">{it.plan}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Intention banner ---------- */
+function Banner({ quote, goals }) {
+  return (
+    <div className="card col4 acc-teal banner">
+      <div className="quote-side">
+        <div className="qmark">// Daily Intention</div>
+        <div className="quote">{quote}</div>
+      </div>
+      <div>
+        <div className="label" style={{ marginBottom: 12 }}>This Week's Commitments</div>
+        <div className="goals">
+          {goals.map((g, i) => (
+            <div className={"goal acc-" + g.accent + (g.done ? "" : " todo")} key={i}>
+              <span className="gdot" />
+              <span className="gl">{g.label}</span>
+              <span className="gck">{g.done ? "✓" : ""}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { Hero, Rings, Wholesaling, Coaching, Habits, TaskList, RealEstate, WeekStrip, ImportantDates, Banner, ICON });
+
+})();
+</script>
+<script type="text/babel" data-presets="react">
+;(function(){
+/* global React, ReactDOM, useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSlider, TweakToggle, TweakColor,
+   Hero, Rings, Wholesaling, Coaching, Habits, TaskList, RealEstate, WeekStrip, ImportantDates, Banner */
+const { useState, useEffect } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "light",
+  "numFont": "Orbitron",
+  "glow": 100,
+  "accent": ["#00E5FF", "#FF6B9D", "#FFD166"],
+  "caliAccent": ["#4F7BC7", "#BD8A5E", "#C6A24C"],
+  "caliPaper": "airy",
+  "inspiration": false
+}/*EDITMODE-END*/;
+
+const ACCENTS = [
+  ["#00FFD1", "#FF8C00", "#FFD166"], // spec: teal / orange / gold
+  ["#34E5C0", "#7AA2F7", "#C0A0FF"], // cool: mint / blue / violet
+  ["#00E5FF", "#FF6B9D", "#FFD166"], // cyan / pink / gold
+  ["#4ADE80", "#FBBF24", "#F87171"], // green / amber / red
+];
+
+// California light palettes — soft, airy, coastal
+const CALI_ACCENTS = [
+  ["#4F7BC7", "#BD8A5E", "#C6A24C"], // Tag Homes — soft blue / warm sand / gold
+  ["#6E8E6A", "#C0815A", "#CDA63F"], // Sage — muted sage / clay / honey
+  ["#2F8475", "#C06A48", "#C2912F"], // Coast — sea green / terracotta / gold
+  ["#5388A6", "#D08267", "#C9A24A"], // Tide — dusty blue / coral / sand gold
+  ["#7E8B57", "#A87B5E", "#C79A3E"], // Olive — olive / taupe / amber
+];
+
+// Per-palette ink + display font (keyed by the primary accent).
+// Tag Homes uses its cooler blue-gray ink + Cormorant serif; the rest keep warm espresso + Spectral.
+const CALI_INK = {
+  "#4F7BC7": { text: "#2A2E3A", mid: "#565B6B", dim: "#8B8F9C", rule: "#D8D1BF", font: "'Cormorant Garamond'" },
+};
+
+const PAPERS = {
+  airy:  { bg: "#FAF6EF", bg2: "#F1EADD", card: "#FFFFFF", card2: "#FAF5EC" }, // lightest
+  cream: { bg: "#F3EAD8", bg2: "#E9DBC2", card: "#FFFDF7", card2: "#F7EFDF" },
+  warm:  { bg: "#EFE3CB", bg2: "#E3D3B4", card: "#FBF4E6", card2: "#F1E6CF" },
+};
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const D = window.DASH;
+  const [quoteIdx] = useState(() => Math.floor(Math.random() * D.quotes.length));
+
+  // theme + tokens
+  useEffect(() => {
+    const r = document.documentElement;
+    r.setAttribute("data-theme", t.theme);
+    const light = t.theme === "light";
+    r.style.setProperty("--gm", String(light ? Math.min(t.glow / 100, 0.10) : t.glow / 100));
+    r.style.setProperty("--num-font", light ? "'Spectral'" : (t.numFont === "Orbitron" ? "'Orbitron'" : "'Space Mono'"));
+    if (light) {
+      const ac = t.caliAccent;
+      r.style.setProperty("--teal", ac[0]);
+      r.style.setProperty("--orange", ac[1]);
+      r.style.setProperty("--gold", ac[2]);
+      const p = PAPERS[t.caliPaper] || PAPERS.airy;
+      r.style.setProperty("--bg", p.bg);
+      r.style.setProperty("--bg-2", p.bg2);
+      r.style.setProperty("--card", p.card);
+      r.style.setProperty("--card-2", p.card2);
+      const ink = CALI_INK[ac[0]];
+      if (ink) {
+        r.style.setProperty("--text", ink.text);
+        r.style.setProperty("--text-mid", ink.mid);
+        r.style.setProperty("--text-dim", ink.dim);
+        r.style.setProperty("--border", ink.rule);
+        r.style.setProperty("--num-font", ink.font);
+      } else {
+        ["--text", "--text-mid", "--text-dim", "--border"].forEach((k) => r.style.removeProperty(k));
+        r.style.setProperty("--num-font", "'Spectral'");
+      }
+    } else {
+      r.style.setProperty("--teal", t.accent[0]);
+      r.style.setProperty("--orange", t.accent[1]);
+      r.style.setProperty("--gold", t.accent[2]);
+      r.style.setProperty("--num-font", t.numFont === "Orbitron" ? "'Orbitron'" : "'Space Mono'");
+      ["--bg", "--bg-2", "--card", "--card-2", "--text", "--text-mid", "--text-dim", "--border"].forEach((k) => r.style.removeProperty(k));
+    }
+    r.style.setProperty("--insp-img",
+      "radial-gradient(60% 80% at 18% 12%, " + t.accent[0] + "55, transparent 60%)," +
+      "radial-gradient(55% 75% at 85% 20%, " + t.accent[1] + "44, transparent 60%)," +
+      "radial-gradient(70% 90% at 60% 100%, " + t.accent[2] + "33, transparent 60%)");
+  }, [t.theme, t.glow, t.numFont, t.accent, t.caliAccent, t.caliPaper]);
+
+  return (
+    <div className={"stage" + (t.inspiration ? " insp" : "")}>
+      <div className="wrap">
+        <div className="topbar">
+          <div className="brand">
+            <span className="dot" />
+            <span className="ttl">Morning Command Center</span>
+          </div>
+          <div className="meta">
+            <div className="skin-switch">
+              <button className={t.theme === "dark" ? "active" : ""} onClick={() => setTweak("theme", "dark")}>Control Room</button>
+              <button className={t.theme === "light" ? "active" : ""} onClick={() => setTweak("theme", "light")}>California</button>
+            </div>
+            <span className="chip">SYNC <b>· live</b></span>
+            <span className="chip num">{D.now.time}<b style={{ marginLeft: 4 }}>{D.now.ampm}</b></span>
+          </div>
+        </div>
+
+        <div className="grid">
+          <Hero d={D} skin={t.theme} />
+          <Rings d={D.health} />
+          <Wholesaling d={D.wholesaling} />
+
+          <Habits d={D.habits} />
+          <Coaching d={D.coaching} />
+          <TaskList label="Business Tasks" accent="orange" items={D.bizTasks} />
+
+          <RealEstate d={D.realEstate} />
+          <TaskList label="Personal Tasks" accent="teal" items={D.personalTasks} />
+          <ImportantDates d={D.importantDates} />
+
+          <WeekStrip d={D.week} />
+          <Banner quote={D.quotes[quoteIdx]} goals={D.weeklyGoals} />
+        </div>
+      </div>
+
+      <TweaksPanel>
+        <TweakSection label="Skin" />
+        <TweakRadio label="Mode" value={t.theme} options={["dark", "light"]} onChange={(v) => setTweak("theme", v)} />
+        <div style={{ fontSize: 11, color: "var(--text-dim)", padding: "2px 2px 6px", lineHeight: 1.4 }}>
+          dark = Control Room · light = California
+        </div>
+        <TweakColor label="Accents (dark)" value={t.accent} options={ACCENTS} onChange={(v) => setTweak("accent", v)} />
+        <TweakColor label="Accents (California)" value={t.caliAccent} options={CALI_ACCENTS} onChange={(v) => setTweak("caliAccent", v)} />
+        <TweakRadio label="Paper tone" value={t.caliPaper} options={["airy", "cream", "warm"]} onChange={(v) => setTweak("caliPaper", v)} />
+        <TweakSection label="Type & Glow" />
+        <TweakRadio label="Number font" value={t.numFont} options={["Orbitron", "Space Mono"]} onChange={(v) => setTweak("numFont", v)} />
+        <TweakSlider label="Glow intensity" value={t.glow} min={0} max={100} step={5} unit="%" onChange={(v) => setTweak("glow", v)} />
+        <TweakSection label="Atmosphere" />
+        <TweakToggle label="Inspiration backdrop" value={t.inspiration} onChange={(v) => setTweak("inspiration", v)} />
+      </TweaksPanel>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+
+})();
+</script>
+</body>
+</html>

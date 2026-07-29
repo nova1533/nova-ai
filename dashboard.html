@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boz — Morning Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Cormorant+Garamond:wght@600;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ===== Boz — Morning Command Center ===== */
+/* Control Room (dark) — the as-delivered accents Boz approved */
+:root {
+  --bg: #0D1117;
+  --bg-2: #080b10;
+  --card: #131B24;
+  --card-2: #0f1620;
+  --border: rgba(125,155,185,0.12);
+  --border-strong: rgba(125,155,185,0.22);
+  --text: #EAF4FF;
+  --text-mid: #93a6b8;
+  --text-dim: #5A7080;
+  --teal: #00E5FF;
+  --orange: #FF6B9D;
+  --gold: #FFD166;
+  --red: #FF4D6D;
+  --gm: 1;
+  --num-font: 'Orbitron';
+  --scan: rgba(255,255,255,0.016);
+  --shadow: 0 14px 38px rgba(0,0,0,0.55);
+  --track: rgba(125,155,185,0.14);
+}
+/* California (light) — Tag Homes scheme, matched to the brand site */
+[data-theme="light"] {
+  --bg: #FAF6EF;
+  --bg-2: #F1EADD;
+  --card: #FFFFFF;
+  --card-2: #FAF5EC;
+  --border: #D8D1BF;
+  --border-strong: rgba(120,92,58,0.28);
+  --text: #2A2E3A;
+  --text-mid: #565B6B;
+  --text-dim: #8B8F9C;
+  --teal: #4F7BC7;
+  --orange: #BD8A5E;
+  --gold: #C6A24C;
+  --red: #B5463E;
+  --gm: 0.08;
+  --scan: rgba(120,92,58,0.014);
+  --shadow: 0 14px 34px rgba(96,68,40,0.13);
+  --track: rgba(120,92,58,0.16);
+  --num-font: 'Cormorant Garamond';
+}
+[data-theme="light"] body { font-family: 'Hanken Grotesk', system-ui, sans-serif; }
+[data-theme="light"] .stage {
+  background:
+    radial-gradient(900px 620px at 14% -4%, rgba(242,185,135,0.55) 0%, transparent 60%),
+    radial-gradient(820px 600px at 88% 4%, rgba(202,150,110,0.40) 0%, transparent 55%),
+    radial-gradient(1100px 820px at 70% 104%, rgba(120,150,128,0.34) 0%, transparent 58%),
+    var(--bg);
+  background-blend-mode: normal;
+}
+[data-theme="light"] .stage::after { opacity: .35; }
+[data-theme="light"] .card { border-radius: 20px; }
+[data-theme="light"] .card::before { opacity: .8; height: 2px; }
+[data-theme="light"] .brand .ttl, [data-theme="light"] .label { letter-spacing: .18em; }
+[data-theme="light"] .hero .name { font-weight: 700; letter-spacing: -.01em; font-family: var(--num-font), serif; }
+[data-theme="light"] .num { font-weight: 600; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--bg); }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  transition: background .4s ease, color .4s ease;
+}
+
+/* background field: halos + scanlines */
+.stage {
+  position: relative;
+  min-height: 100vh;
+  background:
+    radial-gradient(900px 600px at 12% 0%, color-mix(in srgb, var(--teal), transparent 90%) 0%, transparent 60%),
+    radial-gradient(800px 600px at 85% 8%, color-mix(in srgb, var(--orange), transparent 92%) 0%, transparent 55%),
+    radial-gradient(1000px 800px at 70% 100%, color-mix(in srgb, var(--gold), transparent 94%) 0%, transparent 55%),
+    var(--bg);
+  background-blend-mode: screen;
+}
+.stage::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 1;
+  background: repeating-linear-gradient(to bottom, var(--scan) 0, var(--scan) 1px, transparent 1px, transparent 3px);
+  opacity: calc(0.5 + var(--gm) * 0.5);
+}
+.wrap { position: relative; z-index: 2; max-width: 1640px; margin: 0 auto; padding: 30px 30px 44px; }
+
+.num { font-family: var(--num-font), 'Orbitron', monospace; font-weight: 600; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
+.label { font-size: 10px; text-transform: uppercase; letter-spacing: .16em; color: var(--text-dim); font-weight: 600; white-space: nowrap; }
+
+.acc-teal   { --acc: var(--teal); }
+.acc-orange { --acc: var(--orange); }
+.acc-gold   { --acc: var(--gold); }
+.acc-red    { --acc: var(--red); }
+.acc-dim    { --acc: var(--text-dim); }
+.glow-text { text-shadow: 0 0 calc(18px * var(--gm)) color-mix(in srgb, var(--acc, var(--teal)), transparent 40%); }
+
+/* ---- top app bar ---- */
+.topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; gap: 16px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 calc(14px*var(--gm)) var(--teal); }
+.brand .ttl { font-size: 12px; letter-spacing: .26em; text-transform: uppercase; color: var(--text-mid); font-weight: 600; }
+.topbar .meta { display: flex; align-items: center; gap: 14px; }
+.skin-switch { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 999px; overflow: hidden; background: var(--card-2); }
+.skin-switch button { padding: 8px 16px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700;
+  color: var(--text-dim); background: transparent; border: none; cursor: pointer; transition: color .2s ease, background .2s ease; }
+.skin-switch button:hover { color: var(--text-mid); }
+.skin-switch button.active { color: var(--bg); background: var(--teal); box-shadow: 0 0 calc(14px*var(--gm)) var(--teal); }
+.chip { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim);
+  border: 1px solid var(--border); padding: 7px 12px; border-radius: 999px; }
+.chip b { color: var(--text); font-weight: 600; }
+
+/* ---- grid ---- */
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+.col2 { grid-column: span 2; }
+.col4 { grid-column: span 4; }
+
+/* section divider labels */
+.section-rule { grid-column: span 4; display: flex; align-items: center; gap: 14px; margin: 12px 0 2px; }
+.section-rule:first-child { margin-top: 0; }
+.section-rule .sl { font-size: 10px; letter-spacing: .3em; text-transform: uppercase; color: var(--text-dim); font-weight: 700; white-space: nowrap; }
+.section-rule .ln { flex: 1; height: 1px; background: linear-gradient(to right, var(--border-strong), transparent); }
+
+@media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); } .col4, .section-rule { grid-column: span 2; } }
+@media (max-width: 640px)  { .grid { grid-template-columns: 1fr; } .col2, .col4, .section-rule { grid-column: span 1; } }
+
+/* ---- card shell ---- */
+.card {
+  position: relative; background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 20px; overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: border-color .25s ease, transform .25s ease;
+}
+.card::before {
+  content: ""; position: absolute; top: 0; left: 14px; right: 14px; height: 1.5px;
+  background: var(--acc, var(--teal)); border-radius: 2px;
+  box-shadow: 0 0 calc(16px * var(--gm)) var(--acc, var(--teal)), 0 0 calc(4px*var(--gm)) var(--acc, var(--teal));
+  opacity: .9;
+}
+.card:hover { border-color: color-mix(in srgb, var(--acc, var(--border-strong)), transparent 55%); }
+.card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 12px; }
+.card-head .label { display: flex; align-items: center; gap: 8px; }
+.led { width: 7px; height: 7px; border-radius: 50%; background: var(--acc); box-shadow: 0 0 calc(10px*var(--gm)) var(--acc); }
+.head-note { font-size: 12px; color: var(--text-dim); }
+
+/* ===== Hero ===== */
+.hero { display: flex; flex-direction: column; min-height: 260px; }
+.hero .eyebrow { color: color-mix(in srgb, var(--teal), var(--text-dim) 20%); letter-spacing: .28em; }
+.hero .name { font-size: 84px; line-height: .9; letter-spacing: .02em; margin: 10px 0 12px;
+  color: var(--text); text-shadow: 0 0 calc(34px*var(--gm)) color-mix(in srgb, var(--teal), transparent 55%); }
+.hero .intent { font-size: 17px; color: var(--text-mid); max-width: 30ch; line-height: 1.4; }
+.hero .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: auto; padding-top: 22px; }
+.stat { border-left: 2px solid color-mix(in srgb, var(--acc), transparent 40%); padding-left: 12px; }
+.stat .v { font-size: 26px; color: var(--text); }
+.stat .l { font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--text-dim); margin-top: 3px; }
+.stat .d { font-size: 11px; color: var(--acc); margin-top: 5px; font-weight: 600; }
+
+/* ===== Rings ===== */
+.rings-wrap { display: flex; flex-direction: column; align-items: center; }
+.ring-svg { width: 168px; height: 168px; }
+.ring-center { font-size: 40px; }
+.ring-center-sub { font-size: 9px; letter-spacing: .18em; color: var(--text-dim); text-transform: uppercase; }
+.ring-legend { width: 100%; margin-top: 14px; display: flex; flex-direction: column; gap: 9px; }
+.ring-legend .row { display: flex; align-items: center; gap: 9px; font-size: 12px; }
+.ring-legend .nm { color: var(--text-mid); flex: 1; }
+.ring-legend .vl { color: var(--text); font-size: 12px; }
+
+/* ===== KPI ===== */
+.kpi-big { font-size: 40px; color: var(--text); line-height: 1; }
+.kpi-sub { font-size: 11px; color: var(--text-dim); letter-spacing: .12em; text-transform: uppercase; margin-top: 6px; }
+.bar { height: 7px; border-radius: 6px; background: var(--track); overflow: hidden; margin: 14px 0 8px; }
+.bar > span { display: block; height: 100%; border-radius: 6px; background: var(--acc); box-shadow: 0 0 calc(12px*var(--gm)) var(--acc); }
+.bar-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim); }
+.bar-meta b { color: var(--text); font-weight: 600; }
+.stages { display: flex; gap: 8px; margin-top: 16px; }
+.stage-pill { flex: 1; background: var(--card-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 8px; text-align: center; }
+.stage-pill .c { font-size: 21px; color: var(--text); }
+.stage-pill .n { font-size: 8.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); margin-top: 3px; }
+.trend { font-size: 12px; font-weight: 600; color: var(--acc); }
+.manual-tag { font-size: 8.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim);
+  border: 1px dashed var(--border-strong); border-radius: 999px; padding: 3px 8px; }
+
+/* ===== Portfolio KPI strip ===== */
+.pf-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+.pf-kpi { background: var(--card-2); border: 1px solid var(--border); border-left: 2px solid var(--acc); border-radius: 12px; padding: 14px 16px; }
+.pf-kpi .v { font-size: 28px; color: var(--text); line-height: 1.05; }
+.pf-kpi .l { font-size: 9px; letter-spacing: .13em; text-transform: uppercase; color: var(--text-dim); margin-top: 6px; }
+.pf-kpi .s { font-size: 10.5px; color: var(--text-mid); margin-top: 4px; }
+@media (max-width: 900px) { .pf-kpis { grid-template-columns: repeat(2, 1fr); } }
+
+/* ===== Habit tracker ===== */
+.habits { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.habit { display: flex; align-items: center; gap: 13px; background: var(--card-2);
+  border: 1px solid var(--border); border-radius: 13px; padding: 14px; cursor: pointer; transition: all .2s ease; }
+.habit:hover { border-color: color-mix(in srgb, var(--acc), transparent 55%); }
+.habit.done { border-color: color-mix(in srgb, var(--acc), transparent 35%);
+  box-shadow: inset 0 0 calc(26px*var(--gm)) color-mix(in srgb, var(--acc), transparent 86%); }
+.check { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--text-dim);
+  display: grid; place-items: center; flex-shrink: 0; transition: all .2s ease; color: transparent; }
+.habit.done .check { border-color: var(--acc); background: color-mix(in srgb, var(--acc), transparent 80%);
+  color: var(--acc); box-shadow: 0 0 calc(12px*var(--gm)) color-mix(in srgb, var(--acc), transparent 55%); }
+.habit .nm { font-size: 14px; color: var(--text); font-weight: 600; }
+.habit .nt { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.habit .streak { margin-left: auto; text-align: right; }
+.habit .streak .s { font-size: 18px; color: var(--acc); }
+.habit .streak .sl { font-size: 8px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); }
+
+/* ===== Task lists ===== */
+.tasks { display: flex; flex-direction: column; gap: 2px; }
+.task { display: flex; align-items: center; gap: 11px; padding: 11px 4px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.task:last-child { border-bottom: none; }
+.task .box { width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--text-dim); flex-shrink: 0;
+  display: grid; place-items: center; color: transparent; transition: all .18s ease; }
+.task.done .box { background: var(--acc); border-color: var(--acc); color: var(--bg); }
+.task .tt { font-size: 13px; color: var(--text); flex: 1; }
+.task.done .tt { color: var(--text-dim); text-decoration: line-through; }
+.task .pri { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.pri-high { background: var(--red); box-shadow: 0 0 calc(8px*var(--gm)) var(--red); }
+.pri-med  { background: var(--orange); }
+.pri-low  { background: var(--teal); }
+.task .due { font-size: 10px; color: var(--text-dim); width: 48px; text-align: right; flex-shrink: 0; letter-spacing: .04em; }
+
+/* ===== Real estate ===== */
+.re-row { display: flex; align-items: center; gap: 13px; padding: 12px 4px; border-bottom: 1px solid var(--border); }
+.re-row:last-child { border-bottom: none; }
+.re-ico { width: 34px; height: 34px; border-radius: 9px; background: var(--card-2); border: 1px solid var(--border);
+  display: grid; place-items: center; flex-shrink: 0; color: var(--acc); }
+.re-main { flex: 1; min-width: 0; }
+.re-main .a { font-size: 13px; color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.re-main .b { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.re-amt { text-align: right; flex-shrink: 0; min-width: 92px; }
+.re-amt .m { font-size: 14px; color: var(--text); }
+.re-amt .late { font-size: 10px; color: var(--red); margin-top: 3px; font-weight: 600; }
+.re-row.is-late .re-amt .m { color: var(--red); }
+.re-row.is-late .re-ico { color: var(--red); border-color: color-mix(in srgb, var(--red), transparent 60%); }
+.status-tag { font-size: 8.5px; letter-spacing: .1em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; font-weight: 700;
+  background: color-mix(in srgb, var(--acc), transparent 84%); color: var(--acc); border: 1px solid color-mix(in srgb, var(--acc), transparent 60%);
+  white-space: nowrap; }
+.late-count { color: var(--red); font-weight: 700; }
+
+/* ===== Weekly calendar ===== */
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+.day { background: var(--card-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 10px; min-height: 120px; }
+.day.today { border-color: color-mix(in srgb, var(--teal), transparent 30%);
+  box-shadow: inset 0 0 calc(30px*var(--gm)) color-mix(in srgb, var(--teal), transparent 85%); }
+.day .dl { font-size: 9px; letter-spacing: .14em; color: var(--text-dim); }
+.day.today .dl { color: var(--teal); }
+.day .dn { font-size: 22px; color: var(--text); margin: 2px 0 10px; }
+.day.today .dn { color: var(--teal); text-shadow: 0 0 calc(14px*var(--gm)) color-mix(in srgb, var(--teal), transparent 50%); }
+.ev { font-size: 10px; color: var(--text-mid); margin-bottom: 6px; line-height: 1.3; }
+.ev b { color: var(--text-dim); font-weight: 600; margin-right: 4px; font-family: var(--num-font), monospace; }
+@media (max-width: 900px) { .week { grid-template-columns: repeat(2, 1fr); } }
+
+/* ===== Important dates ===== */
+.dates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 11px; }
+.drow { display: flex; align-items: center; gap: 14px; background: var(--card-2); border: 1px solid var(--border);
+  border-left: 2px solid var(--acc); border-radius: 11px; padding: 13px 15px; }
+.dcount { text-align: center; flex-shrink: 0; min-width: 52px; }
+.dcount .n { font-size: 26px; color: var(--acc); line-height: 1; }
+.dcount .u { font-size: 8px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); margin-top: 3px; }
+.dmain { flex: 1; min-width: 0; }
+.dmain .l { font-size: 14px; color: var(--text); font-weight: 600; }
+.dmain .p { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+.dmain .dt { font-size: 11px; color: var(--text-mid); font-family: var(--num-font), monospace; }
+@media (max-width: 900px) { .dates { grid-template-columns: 1fr; } }
+
+/* ===== Intention banner ===== */
+.banner { display: grid; grid-template-columns: 1.1fr 1.4fr; gap: 26px; align-items: center; }
+.banner .quote-side { border-left: 2px solid var(--teal); padding-left: 20px; }
+.banner .qmark { font-size: 13px; letter-spacing: .2em; color: var(--teal); text-transform: uppercase; margin-bottom: 10px; }
+.banner .quote { font-size: 22px; line-height: 1.35; color: var(--text); font-weight: 500; text-wrap: balance; }
+.goals { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+.goal { display: flex; align-items: center; gap: 11px; background: var(--card-2); border: 1px solid var(--border); border-radius: 11px; padding: 13px 14px; }
+.goal .gdot { width: 9px; height: 9px; border-radius: 50%; background: var(--acc); box-shadow: 0 0 calc(9px*var(--gm)) var(--acc); flex-shrink: 0; }
+.goal .gl { font-size: 13px; color: var(--text); flex: 1; }
+.goal .gck { font-size: 12px; color: var(--acc); }
+.goal.todo .gl { color: var(--text-mid); }
+@media (max-width: 760px) { .banner { grid-template-columns: 1fr; } }
+
+/* sample-data notice */
+.sample-note { margin-top: 26px; text-align: center; font-size: 10px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--text-dim); }
+
+/* ===== Lock screen ===== */
+.lock { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.lock-box { width: 100%; max-width: 380px; background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 32px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
+.lock-box::before { content: ""; position: absolute; top: 0; left: 14px; right: 14px; height: 1.5px;
+  background: var(--teal); box-shadow: 0 0 calc(16px*var(--gm)) var(--teal); }
+.lock-box .ttl { font-size: 12px; letter-spacing: .26em; text-transform: uppercase; color: var(--text-mid);
+  font-weight: 600; margin-bottom: 22px; }
+.lock-box input { width: 100%; background: var(--card-2); border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: 13px 14px; color: var(--text); font-size: 14px;
+  font-family: inherit; outline: none; transition: border-color .2s ease; }
+.lock-box input:focus { border-color: color-mix(in srgb, var(--teal), transparent 45%); }
+.lock-box button { width: 100%; margin-top: 12px; background: var(--teal); color: var(--bg);
+  border: none; border-radius: 10px; padding: 13px; font-size: 11px; font-weight: 700;
+  letter-spacing: .16em; text-transform: uppercase; cursor: pointer; font-family: inherit;
+  box-shadow: 0 0 calc(14px*var(--gm)) var(--teal); }
+.lock-box button:disabled { opacity: .5; cursor: default; box-shadow: none; }
+.lock-box .err { color: var(--red); font-size: 12px; margin-top: 12px; min-height: 16px; }
+
+/* ===== Connection notice ===== */
+.notice { display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  background: var(--card); border: 1px solid var(--border); border-left: 2px solid var(--gold);
+  border-radius: 12px; padding: 14px 18px; margin-bottom: 18px; }
+.notice .nt { font-size: 13px; color: var(--text-mid); flex: 1; min-width: 240px; }
+.notice .nt b { color: var(--text); font-weight: 600; }
+.notice a { color: var(--teal); font-size: 11px; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; text-decoration: none; border: 1px solid color-mix(in srgb, var(--teal), transparent 60%);
+  border-radius: 999px; padding: 8px 14px; white-space: nowrap; }
+.notice a:hover { background: color-mix(in srgb, var(--teal), transparent 88%); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+/* ═══════════════════════════════════════════════════════════
+   SAMPLE DATA — pass 1 only. Every value here is replaced in
+   passes 2-4 by one call to the backend returning this shape.
+   Property rows use Boz's real deals so the layout is judged
+   against realistic content; buyers and due dates are invented
+   because the tracker doesn't have those columns yet.
+   ═══════════════════════════════════════════════════════════ */
+const DASH = {
+  user: "BOZ",
+  greeting: "GOOD MORNING",
+  intention: "Build the machine. Stay in the body.",
+
+  heroStats: [
+    { label: "My Monthly Cashflow", value: "$2,235", accent: "teal",   delta: "5 performing" },
+    { label: "My Equity",           value: "$186.5K", accent: "orange", delta: "8 properties" },
+    { label: "To Cashflow Goal",    value: "9%",     accent: "gold",   delta: "of $25K target" },
+  ],
+
+  /* Wholesaling has no live source yet — Salesforce is deferred.
+     These are set by hand and stored in Supabase from pass 4 on. */
+  wholesaling: {
+    pipeline: "$2.4M",
+    mtd: 128400, goal: 175000,
+    trend: "+18%",
+    stages: [
+      { label: "Under Contract", count: 4, accent: "teal" },
+      { label: "Negotiating",    count: 7, accent: "orange" },
+      { label: "Leads",          count: 23, accent: "dim" },
+    ],
+  },
+
+  bizTasks: [
+    { id: "b1", title: "Call title co. — Glenhaven closing", due: "Today", pri: "high", done: false },
+    { id: "b2", title: "Review JV agreement w/ partner",     due: "Today", pri: "med",  done: false },
+    { id: "b3", title: "Send comps to buyer list",           due: "Tue",   pri: "low",  done: false },
+    { id: "b4", title: "Follow up — Muzzy St buyer",         due: "Wed",   pri: "med",  done: true  },
+  ],
+
+  /* Computed in pass 2 from the deal-by-deal rows, at Boz's
+     ownership split: "Boz Only" = 100%, "Partner Deal" = 50%. */
+  portfolio: {
+    kpis: [
+      { label: "My Monthly Cashflow", value: "$2,235",   sub: "5 performing",          accent: "teal"   },
+      { label: "Potential Monthly",   value: "$482",     sub: "3 in the pipeline",     accent: "orange" },
+      { label: "My Equity",           value: "$186,500", sub: "across 8 properties",   accent: "gold"   },
+      { label: "My Annual Revenue",   value: "$26,820",  sub: "at current cashflow",   accent: "teal"   },
+    ],
+    properties: [
+      { addr: "1224 W Minnesota Ave, Chickasha", owner: "Boz Only",     stage: "Performing",        amount: "$695/mo", due: "due 1st",  late: 0 },
+      { addr: "8001 NW 129th Cir, OKC",          owner: "Boz Only",     stage: "Performing",        amount: "$600/mo", due: "due 1st",  late: 0 },
+      { addr: "6000 96th St, Noble",             owner: "Partner Deal", stage: "Performing",        amount: "$348/mo", due: "due 5th",  late: 0 },
+      { addr: "3072 Muzzy St, Choctaw",          owner: "Boz Only",     stage: "Performing",        amount: "$322/mo", due: "due 1st",  late: 0 },
+      { addr: "4204 Cunningham, OKC",            owner: "Partner Deal", stage: "Performing",        amount: "$270/mo", due: "due 10th", late: 0 },
+      { addr: "1404 Sandstone Dr, Noble",        owner: "Partner Deal", stage: "Listed for Sale",   amount: "$242/mo", due: "projected", late: 0 },
+      { addr: "2408 NW 33rd St, OKC",            owner: "Partner Deal", stage: "Under Construction",amount: "$240/mo", due: "projected", late: 0 },
+      { addr: "209 W Glenhaven Dr, MWC",         owner: "Partner Deal", stage: "Under Contract",    amount: "—",       due: "closing Jun 6", late: 0 },
+    ],
+  },
+
+  week: [
+    { day: "MON", date: 27, events: [{ t: "9a", label: "Buyer calls" }] },
+    { day: "TUE", date: 28, today: true, events: [{ t: "8a", label: "Breathwork" }, { t: "6p", label: "Family dinner" }] },
+    { day: "WED", date: 29, events: [{ t: "11a", label: "Walkthrough — Sandstone" }] },
+    { day: "THU", date: 30, events: [{ t: "7a", label: "Gym" }, { t: "4p", label: "JV sync" }] },
+    { day: "FRI", date: 31, events: [{ t: "10a", label: "Title co." }] },
+    { day: "SAT", date: 1,  events: [] },
+    { day: "SUN", date: 2,  events: [{ t: "5p", label: "Week planning" }] },
+  ],
+
+  health: {
+    score: 82,
+    rings: [
+      { label: "Steps",      value: "8,240", target: "10,000", pct: 82,  accent: "teal"   },
+      { label: "Gym",        value: "2",     target: "3 / wk", pct: 67,  accent: "orange" },
+      { label: "Breathwork", value: "Done",  target: "daily",  pct: 100, accent: "gold"   },
+    ],
+  },
+
+  habits: [
+    { id: "breath", name: "Breathwork",     note: "Microcosmic Orbit · 20 min, deep", streak: 14, done: true,  accent: "teal"   },
+    { id: "steps",  name: "Steps",          note: "8,240 logged today",               streak: 6,  done: true,  accent: "orange" },
+    { id: "gym",    name: "Gym Session",    note: "Last: Thu, Jul 23",                streak: 3,  done: false, accent: "orange" },
+    { id: "ifs",    name: "IFS Journaling", note: "Parts check-in",                   streak: 9,  done: true,  accent: "teal"   },
+  ],
+
+  personalTasks: [
+    { id: "p1", title: "Order anniversary gift", due: "Today",  pri: "high", done: false },
+    { id: "p2", title: "Book flights — trip",    due: "Mon",    pri: "low",  done: false },
+    { id: "p3", title: "Schedule dentist",       due: "—",      pri: "low",  done: false },
+    { id: "p4", title: "Renew passport",         due: "Aug 10", pri: "med",  done: false },
+  ],
+
+  importantDates: [
+    { label: "Glenhaven Closing",   date: "Aug 6",  days: 9,  accent: "orange", plan: "Confirm wire + walkthrough" },
+    { label: "Maya's Birthday",     date: "Aug 14", days: 17, accent: "teal",   plan: "Book venue, order cake" },
+    { label: "Sandstone Listing",   date: "Sep 1",  days: 35, accent: "gold",   plan: "Photos, price check, MLS" },
+  ],
+
+  quotes: [
+    "Discipline is the bridge between goals and accomplishment.",
+    "The body keeps the score — so keep it strong.",
+    "Move first. Motivation follows motion.",
+    "You don't rise to your goals; you fall to your systems.",
+  ],
+
+  weeklyGoals: [
+    { label: "IFS journaling — daily",   accent: "teal",   done: true  },
+    { label: "Breathwork streak → 21",   accent: "gold",   done: false },
+    { label: "Two new CFD offers out",   accent: "orange", done: false },
+    { label: "Date night with partner",  accent: "teal",   done: false },
+  ],
+};
+
+/* ─────────────── shared bits ─────────────── */
+const ICON = {
+  home:  (p) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg>,
+  check: (p) => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" {...p}><path d="M5 12l5 5L20 6"/></svg>,
+};
+
+function CardHead({ label, accent, right }) {
+  return (
+    <div className="card-head">
+      <div className={"label acc-" + accent}><span className="led" /> {label}</div>
+      {right}
+    </div>
+  );
+}
+
+function SectionRule({ children }) {
+  return <div className="section-rule"><span className="sl">{children}</span><span className="ln" /></div>;
+}
+
+/* ─────────────── Hero ─────────────── */
+function Hero({ d }) {
+  return (
+    <div className="card col2 acc-teal hero">
+      <div className="label eyebrow">{d.greeting}</div>
+      <div className="num name acc-teal">{d.user}.</div>
+      <div className="intent">{d.intention}</div>
+      <div className="stats">
+        {d.heroStats.map((s, i) => (
+          <div className={"stat acc-" + s.accent} key={i}>
+            <div className="num v">{s.value}</div>
+            <div className="l">{s.label}</div>
+            <div className="d">{s.delta}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────── Wholesaling ─────────────── */
+function Wholesaling({ d }) {
+  const pct = Math.round((d.mtd / d.goal) * 100);
+  return (
+    <div className="card acc-orange">
+      <CardHead label="Wholesaling" accent="orange" right={<span className="manual-tag">set by hand</span>} />
+      <div className="num kpi-big acc-orange glow-text">{d.pipeline}</div>
+      <div className="kpi-sub">Pipeline Potential</div>
+      <div className="bar acc-orange"><span style={{ width: pct + "%" }} /></div>
+      <div className="bar-meta"><span>MTD Revenue</span><span><b>${(d.mtd / 1000).toFixed(1)}K</b> / ${(d.goal / 1000)}K</span></div>
+      <div className="stages">
+        {d.stages.map((s, i) => (
+          <div className={"stage-pill acc-" + s.accent} key={i}>
+            <div className="num c" style={{ color: s.accent === "dim" ? "var(--text-mid)" : "var(--acc)" }}>{s.count}</div>
+            <div className="n">{s.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────── Real Estate Portfolio ─────────────── */
+const STAGE_ACC = {
+  "Performing": "teal",
+  "Listed for Sale": "gold",
+  "Under Construction": "orange",
+  "Under Contract": "dim",
+};
+
+function Portfolio({ d }) {
+  const performing = d.properties.filter(p => p.stage === "Performing").length;
+  const late = d.properties.filter(p => p.late > 0).length;
+  return (
+    <div className="card col4 acc-teal">
+      <CardHead label="Real Estate Portfolio" accent="teal" right={
+        <span className="num head-note">
+          {performing} PERFORMING
+          {late > 0 && <> · <span className="late-count">{late} LATE</span></>}
+        </span>} />
+      <div className="pf-kpis">
+        {d.kpis.map((k, i) => (
+          <div className={"pf-kpi acc-" + k.accent} key={i}>
+            <div className="num v">{k.value}</div>
+            <div className="l">{k.label}</div>
+            <div className="s">{k.sub}</div>
+          </div>
+        ))}
+      </div>
+      <div>
+        {d.properties.map((p, i) => (
+          <div className={"re-row acc-" + STAGE_ACC[p.stage] + (p.late > 0 ? " is-late" : "")} key={i}>
+            <div className="re-ico">{ICON.home()}</div>
+            <div className="re-main">
+              <div className="a">{p.addr}</div>
+              <div className="b">{p.owner} · {p.due}</div>
+            </div>
+            <span className={"status-tag acc-" + STAGE_ACC[p.stage]}>{p.stage}</span>
+            <div className="re-amt">
+              <div className="num m">{p.amount}</div>
+              {p.late > 0 && <div className="late">{p.late} days late</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────── Task list ─────────────── */
+function TaskList({ label, accent, items }) {
+  const [done, setDone] = useState(() => Object.fromEntries(items.map(t => [t.id, t.done])));
+  const open = items.filter(t => !done[t.id]).length;
+  return (
+    <div className={"card acc-" + accent}>
+      <CardHead label={label} accent={accent} right={<span className="num head-note">{open} OPEN</span>} />
+      <div className="tasks">
+        {items.map(t => (
+          <div className={"task" + (done[t.id] ? " done" : "")} key={t.id}
+               onClick={() => setDone(s => ({ ...s, [t.id]: !s[t.id] }))}>
+            <div className="box">{ICON.check({ width: 12, height: 12 })}</div>
+            <span className={"pri pri-" + t.pri} />
+            <span className="tt">{t.title}</span>
+            <span className="due">{t.due}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────── Weekly calendar ─────────────── */
+function WeekStrip({ d }) {
+  return (
+    <div className="card col4 acc-teal">
+      <CardHead label="This Week" accent="teal" />
+      <div className="week">
+        {d.map((day, i) => (
+          <div className={"day" + (day.today ? " today" : "")} key={i}>
+            <div className="dl">{day.day}</div>
+            <div className="num dn">{day.date}</div>
+            {day.events.map((e, j) => <div className="ev" key={j}><b>{e.t}</b>{e.label}</div>)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────── Health rings ─────────────── */
+function Rings({ d }) {
+  const acc = { teal: "var(--teal)", orange: "var(--orange)", gold: "var(--gold)" };
+  const radii = [72, 56, 40];
+  const cx = 84, cy = 84;
+  return (
+    <div className="card acc-teal">
+      <CardHead label="Health HQ" accent="teal" right={<div className="num head-note">SCORE</div>} />
+      <div className="rings-wrap">
+        <div style={{ position: "relative", width: 168, height: 168 }}>
+          <svg className="ring-svg" viewBox="0 0 168 168">
+            {d.rings.map((r, i) => {
+              const R = radii[i], C = 2 * Math.PI * R, col = acc[r.accent];
+              return (
+                <g key={i} transform={`rotate(-90 ${cx} ${cy})`}>
+                  <circle cx={cx} cy={cy} r={R} fill="none" stroke="var(--track)" strokeWidth="9" />
+                  <circle cx={cx} cy={cy} r={R} fill="none" stroke={col} strokeWidth="9" strokeLinecap="round"
+                    strokeDasharray={C} strokeDashoffset={C * (1 - r.pct / 100)}
+                    style={{ filter: "drop-shadow(0 0 calc(6px*var(--gm)) " + col + ")" }} />
+                </g>
+              );
+            })}
+          </svg>
+          <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
+            <div style={{ textAlign: "center" }}>
+              <div className="num ring-center acc-teal glow-text">{d.score}</div>
+              <div className="ring-center-sub">Composite</div>
+            </div>
+          </div>
+        </div>
+        <div className="ring-legend">
+          {d.rings.map((r, i) => (
+            <div className={"row acc-" + r.accent} key={i}>
+              <span className="led" />
+              <span className="nm">{r.label}</span>
+              <span className="num vl">{r.value}<span style={{ color: "var(--text-dim)" }}> / {r.target}</span></span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────── Habits ─────────────── */
+function Habits({ d }) {
+  const [state, setState] = useState(() => Object.fromEntries(d.map(h => [h.id, h.done])));
+  return (
+    <div className="card col2 acc-teal">
+      <CardHead label="Daily Practices" accent="teal" right={
+        <span className="num head-note">{Object.values(state).filter(Boolean).length}/{d.length} DONE</span>} />
+      <div className="habits">
+        {d.map(h => {
+          const done = state[h.id];
+          const streak = h.streak + (done && !h.done ? 1 : (!done && h.done ? -1 : 0));
+          return (
+            <div className={"habit acc-" + h.accent + (done ? " done" : "")} key={h.id}
+                 onClick={() => setState(s => ({ ...s, [h.id]: !s[h.id] }))}>
+              <div className="check">{ICON.check()}</div>
+              <div style={{ minWidth: 0 }}>
+                <div className="nm">{h.name}</div>
+                <div className="nt">{h.note}</div>
+              </div>
+              <div className="streak">
+                <div className="num s">{streak}</div>
+                <div className="sl">day streak</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────── Important dates ─────────────── */
+function ImportantDates({ d }) {
+  return (
+    <div className="card col4 acc-gold">
+      <CardHead label="On the Horizon" accent="gold" right={<span className="num head-note">{d.length} UPCOMING</span>} />
+      <div className="dates">
+        {d.map((it, i) => (
+          <div className={"drow acc-" + it.accent} key={i}>
+            <div className="dcount"><div className="num n">{it.days}</div><div className="u">days</div></div>
+            <div className="dmain">
+              <div className="l">{it.label} <span className="dt">· {it.date}</span></div>
+              <div className="p">{it.plan}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────── Intention banner ─────────────── */
+function Banner({ quote, goals }) {
+  return (
+    <div className="card col4 acc-teal banner">
+      <div className="quote-side">
+        <div className="qmark">// Daily Intention</div>
+        <div className="quote">{quote}</div>
+      </div>
+      <div>
+        <div className="label" style={{ marginBottom: 12 }}>This Week's Commitments</div>
+        <div className="goals">
+          {goals.map((g, i) => (
+            <div className={"goal acc-" + g.accent + (g.done ? "" : " todo")} key={i}>
+              <span className="gdot" />
+              <span className="gl">{g.label}</span>
+              <span className="gck">{g.done ? "✓" : ""}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────── Lock screen ─────────────── */
+function LockScreen({ onUnlock }) {
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true); setErr("");
+    try {
+      const r = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      if (r.ok) { onUnlock(); return; }
+      setErr(r.status === 401 ? "That's not it." : "Something went wrong. Try again.");
+    } catch {
+      setErr("Couldn't reach the server.");
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div className="stage">
+      <div className="lock">
+        <form className="lock-box" onSubmit={submit}>
+          <div className="ttl">Morning Command Center</div>
+          <input type="password" value={password} autoFocus placeholder="Password"
+                 onChange={(e) => setPassword(e.target.value)} />
+          <button type="submit" disabled={busy || !password}>{busy ? "Checking…" : "Unlock"}</button>
+          <div className="err">{err}</div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────── App ─────────────── */
+function App() {
+  const D = DASH;
+  const [skin, setSkin] = useState(() => localStorage.getItem("boz-dash-skin") || "dark");
+  const [quoteIdx] = useState(() => Math.floor(Math.random() * D.quotes.length));
+
+  // "checking" until we know whether the backend is there and we're allowed in.
+  const [gate, setGate] = useState("checking");
+  const [portfolio, setPortfolio] = useState(D.portfolio);
+  const [source, setSource] = useState("sample");   // sample | live
+  const [notice, setNotice] = useState(null);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", skin);
+    localStorage.setItem("boz-dash-skin", skin);
+  }, [skin]);
+
+  const load = React.useCallback(async () => {
+    let r;
+    try {
+      r = await fetch("/api/portfolio");
+    } catch {
+      // No backend at all — running the file locally. Show the shell on sample data.
+      setGate("open");
+      setNotice({ text: "No backend reachable. Showing sample data." });
+      return;
+    }
+
+    if (r.status === 401) { setGate("locked"); return; }
+    setGate("open");
+
+    if (r.status === 404) {
+      // Served by a plain static server (local preview) — the functions aren't running.
+      setNotice({ text: "No backend running. Showing sample data." });
+      return;
+    }
+
+    if (r.status === 428) {
+      setNotice({ text: "Google isn't connected yet, so the portfolio below is sample data.", action: "Connect Google", href: "/api/auth/google" });
+      return;
+    }
+    if (!r.ok) {
+      let msg = "Couldn't read the deal tracker.";
+      try { const j = await r.json(); if (j.message) msg = j.message; } catch {}
+      setNotice({ text: msg + " Showing sample data." });
+      return;
+    }
+
+    const data = await r.json();
+    setPortfolio({ kpis: data.kpis, properties: data.properties });
+    setSource("live");
+    setNotice(null);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (gate === "checking") return <div className="stage" />;
+  if (gate === "locked") return <LockScreen onUnlock={() => { setGate("checking"); load(); }} />;
+
+  return (
+    <div className="stage">
+      <div className="wrap">
+        <div className="topbar">
+          <div className="brand"><span className="dot" /><span className="ttl">Morning Command Center</span></div>
+          <div className="meta">
+            <div className="skin-switch">
+              <button className={skin === "dark" ? "active" : ""} onClick={() => setSkin("dark")}>Control Room</button>
+              <button className={skin === "light" ? "active" : ""} onClick={() => setSkin("light")}>California</button>
+            </div>
+            <div className="chip">Sync · <b>{source}</b></div>
+          </div>
+        </div>
+
+        {notice && (
+          <div className="notice">
+            <span className="nt">{notice.text}</span>
+            {notice.action && <a href={notice.href}>{notice.action}</a>}
+          </div>
+        )}
+
+        <div className="grid">
+          <SectionRule>Business</SectionRule>
+          <Hero d={D} />
+          <Wholesaling d={D.wholesaling} />
+          <TaskList label="Business Tasks" accent="orange" items={D.bizTasks} />
+          <Portfolio d={portfolio} />
+
+          <WeekStrip d={D.week} />
+
+          <SectionRule>Personal</SectionRule>
+          <Rings d={D.health} />
+          <Habits d={D.habits} />
+          <TaskList label="Personal Tasks" accent="teal" items={D.personalTasks} />
+          <ImportantDates d={D.importantDates} />
+          <Banner quote={D.quotes[quoteIdx]} goals={D.weeklyGoals} />
+        </div>
+
+        <div className="sample-note">
+          {source === "live"
+            ? "Portfolio is live from the deal tracker — everything else is still sample data"
+            : "Sample data — no live sources connected yet"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
