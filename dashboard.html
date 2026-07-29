@@ -794,11 +794,25 @@ function App() {
     if (!r.ok) {
       let msg = "Couldn't read the deal tracker.";
       try { const j = await r.json(); if (j.message) msg = j.message; } catch {}
-      setNotice({ text: msg + " Showing sample data." });
+      setNotice({ text: `${msg} (status ${r.status}) Showing sample data.` });
       return;
     }
 
-    const data = await r.json();
+    // A malformed or intercepted response must not fail quietly — without this,
+    // a non-JSON body would abort here and leave the page silently on sample
+    // data with nothing on screen explaining why.
+    let data;
+    try {
+      data = await r.json();
+    } catch {
+      setNotice({ text: "The server replied with something that wasn't data. Showing sample data." });
+      return;
+    }
+    if (!data || !Array.isArray(data.kpis) || !Array.isArray(data.properties)) {
+      setNotice({ text: "The portfolio data came back in an unexpected shape. Showing sample data." });
+      return;
+    }
+
     setPortfolio({ kpis: data.kpis, properties: data.properties });
     setSource("live");
     setNotice(null);

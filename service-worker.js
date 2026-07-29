@@ -1,4 +1,4 @@
-const CACHE = 'nova-v4';
+const CACHE = 'nova-v5';
 const ASSETS = ['/', '/index.html', '/mobile.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -18,10 +18,18 @@ self.addEventListener('fetch', e => {
   if (e.request.url.includes('railway.app')) return;
 
   const url = new URL(e.request.url);
-  const isHTML = url.pathname === '/' || url.pathname.endsWith('.html');
 
-  if (isHTML) {
-    // Network-first for HTML: always try to get the latest, fall back to cache if offline
+  // Never cache or intercept the dashboard's backend. These responses are
+  // per-request and depend on the session cookie — serving a stale one is
+  // worse than being offline.
+  if (url.pathname.startsWith('/api/')) return;
+
+  // Pages, including extensionless ones like /dashboard that cleanUrls serves.
+  const hasFileExtension = /\.[a-z0-9]+$/i.test(url.pathname);
+  const isPage = url.pathname === '/' || url.pathname.endsWith('.html') || !hasFileExtension;
+
+  if (isPage) {
+    // Network-first: always try for the latest, fall back to cache if offline.
     e.respondWith(
       fetch(e.request)
         .then(response => {
@@ -32,7 +40,7 @@ self.addEventListener('fetch', e => {
         .catch(() => caches.match(e.request))
     );
   } else {
-    // Cache-first for everything else (manifest, icons, etc.)
+    // Cache-first for genuine static assets (icons, manifest, audio).
     e.respondWith(
       caches.match(e.request).then(cached => cached || fetch(e.request))
     );
