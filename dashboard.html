@@ -760,6 +760,11 @@ function LockScreen({ onUnlock }) {
   );
 }
 
+function listJoin(items) {
+  if (items.length <= 1) return items.join("");
+  return items.slice(0, -1).join(", ") + " and " + items[items.length - 1];
+}
+
 /* ─────────────── App ─────────────── */
 function App() {
   const D = DASH;
@@ -770,6 +775,7 @@ function App() {
   const [gate, setGate] = useState("checking");
   const [portfolio, setPortfolio] = useState(D.portfolio);
   const [tasks, setTasks] = useState({ bizTasks: D.bizTasks, personalTasks: D.personalTasks });
+  const [week, setWeek] = useState(D.week);
   const [liveParts, setLiveParts] = useState([]);   // which cards are showing real data
   const [notice, setNotice] = useState(null);
   const source = liveParts.length ? "live" : "sample";
@@ -848,21 +854,55 @@ function App() {
     return { ok: true };
   }, []);
 
-  const load = React.useCallback(async () => {
-    const [p, t] = await Promise.all([loadPortfolio(), loadTasks()]);
+  const loadCalendar = React.useCallback(async () => {
+    let r;
+    try {
+      r = await fetch("/api/calendar");
+    } catch {
+      return { text: "No backend reachable. Showing sample data." };
+    }
 
-    if (p.locked || t.locked) { setGate("locked"); return; }
+    if (r.status === 401) return { locked: true };
+    if (r.status === 404) return { text: "No backend running. Showing sample data." };
+    if (r.status === 428) {
+      return { text: "Google isn't connected yet, so the portfolio, tasks and calendar below are sample data.", action: "Connect Google", href: "/api/auth/google" };
+    }
+    if (!r.ok) {
+      let msg = "Couldn't read your calendar.";
+      try { const j = await r.json(); if (j.message) msg = j.message; } catch {}
+      return { text: `${msg} (status ${r.status}) Showing sample calendar.` };
+    }
+
+    let data;
+    try {
+      data = await r.json();
+    } catch {
+      return { text: "The server replied with something that wasn't data. Showing sample calendar." };
+    }
+    if (!data || !Array.isArray(data.week) || data.week.length !== 7) {
+      return { text: "The calendar data came back in an unexpected shape. Showing sample calendar." };
+    }
+
+    setWeek(data.week);
+    return { ok: true };
+  }, []);
+
+  const load = React.useCallback(async () => {
+    const [p, t, c] = await Promise.all([loadPortfolio(), loadTasks(), loadCalendar()]);
+
+    if (p.locked || t.locked || c.locked) { setGate("locked"); return; }
     setGate("open");
 
     const live = [];
     if (p.ok) live.push("portfolio");
     if (t.ok) live.push("tasks");
+    if (c.ok) live.push("calendar");
     setLiveParts(live);
 
-    // Prefer whichever call actually failed over a generic message; if both
-    // succeeded there's nothing to tell Boz about.
-    setNotice((!p.ok && p) || (!t.ok && t) || null);
-  }, [loadPortfolio, loadTasks]);
+    // Prefer whichever call actually failed over a generic message; if all
+    // three succeeded there's nothing to tell Boz about.
+    setNotice((!p.ok && p) || (!t.ok && t) || (!c.ok && c) || null);
+  }, [loadPortfolio, loadTasks, loadCalendar]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -897,7 +937,7 @@ function App() {
           <TaskList label="Business Tasks" accent="orange" items={tasks.bizTasks} />
           <Portfolio d={portfolio} />
 
-          <WeekStrip d={D.week} />
+          <WeekStrip d={week} />
 
           <SectionRule>Personal</SectionRule>
           <Rings d={D.health} />
@@ -910,9 +950,7 @@ function App() {
         <div className="sample-note">
           {liveParts.length === 0
             ? "Sample data — no live sources connected yet"
-            : liveParts.length === 2
-              ? "Portfolio and tasks are live — everything else is still sample data"
-              : `${liveParts[0] === "portfolio" ? "Portfolio" : "Tasks"} is live — everything else is still sample data`}
+            : `${listJoin(liveParts.map(p => p[0].toUpperCase() + p.slice(1)))} ${liveParts.length === 1 ? "is" : "are"} live — everything else is still sample data`}
         </div>
       </div>
     </div>
