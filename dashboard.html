@@ -269,6 +269,18 @@ body {
 .dmain .p { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
 .dmain .dt { font-size: 11px; color: var(--text-mid); font-family: var(--num-font), monospace; }
 @media (max-width: 900px) { .dates { grid-template-columns: 1fr; } }
+.dadd { cursor: pointer; border-style: dashed; opacity: .7; }
+.dadd:hover { opacity: 1; }
+.dadd .l { color: var(--text-dim); font-weight: 500; }
+.dform { display: flex; flex-direction: column; gap: 6px; }
+.di { background: var(--bg); border: 1px solid var(--border-strong); border-radius: 7px; color: var(--text);
+  font-size: 12px; padding: 7px 9px; font-family: inherit; width: 100%; }
+.di:focus { outline: none; border-color: var(--acc); }
+.dactions { display: flex; gap: 8px; margin-top: 2px; }
+.dbtn { background: var(--card-2); border: 1px solid var(--border-strong); border-radius: 7px; color: var(--text-mid);
+  font-size: 11px; padding: 5px 10px; cursor: pointer; font-family: inherit; }
+.dbtn-save { background: var(--acc); border-color: var(--acc); color: var(--bg); font-weight: 600; }
+.dbtn-del { color: var(--red); border-color: var(--red); margin-left: auto; }
 
 /* ===== Intention banner ===== */
 .banner { display: grid; grid-template-columns: 1.1fr 1.4fr; gap: 26px; align-items: center; }
@@ -679,20 +691,77 @@ function Habits({ d }) {
 }
 
 /* ─────────────── Important dates ─────────────── */
-function ImportantDates({ d }) {
+function DateForm({ draft, onChange, onSave, onCancel, onDelete }) {
+  return (
+    <div className="dmain dform">
+      <input className="di" placeholder="Label" value={draft.label}
+             onChange={e => onChange({ ...draft, label: e.target.value })} />
+      <input className="di" type="date" value={draft.rawDate || ""}
+             onChange={e => onChange({ ...draft, rawDate: e.target.value })} />
+      <input className="di" placeholder="Plan (optional)" value={draft.plan}
+             onChange={e => onChange({ ...draft, plan: e.target.value })} />
+      <div className="dactions">
+        <button className="dbtn dbtn-save" onClick={onSave}>Save</button>
+        <button className="dbtn" onClick={onCancel}>Cancel</button>
+        {onDelete && <button className="dbtn dbtn-del" onClick={onDelete}>Delete</button>}
+      </div>
+    </div>
+  );
+}
+
+function ImportantDates({ d, editable, onSave, onDelete }) {
+  const [editingId, setEditingId] = useState(null); // an item's id, or "new"
+  const [draft, setDraft] = useState(null);
+
+  function startEdit(it) {
+    setEditingId(it.id);
+    setDraft({ id: it.id, label: it.label, rawDate: it.rawDate, plan: it.plan || "" });
+  }
+  function startAdd() {
+    setEditingId("new");
+    setDraft({ label: "", rawDate: "", plan: "" });
+  }
+  function cancel() { setEditingId(null); setDraft(null); }
+  async function save() {
+    if (!draft.label || !draft.rawDate) return;
+    await onSave({ id: draft.id, label: draft.label, date: draft.rawDate, plan: draft.plan });
+    cancel();
+  }
+  async function del() {
+    await onDelete(draft.id);
+    cancel();
+  }
+
   return (
     <div className="card col4 acc-gold">
       <CardHead label="On the Horizon" accent="gold" right={<span className="num head-note">{d.length} UPCOMING</span>} />
       <div className="dates">
-        {d.map((it, i) => (
-          <div className={"drow acc-" + it.accent} key={i}>
-            <div className="dcount"><div className="num n">{it.days}</div><div className="u">days</div></div>
-            <div className="dmain">
-              <div className="l">{it.label} <span className="dt">· {it.date}</span></div>
-              <div className="p">{it.plan}</div>
-            </div>
+        {d.map(it => (
+          <div className={"drow acc-" + it.accent} key={it.id ?? it.label}>
+            {editingId === it.id ? (
+              <DateForm draft={draft} onChange={setDraft} onSave={save} onCancel={cancel} onDelete={del} />
+            ) : (
+              <React.Fragment>
+                <div className="dcount"><div className="num n">{it.days}</div><div className="u">days</div></div>
+                <div className="dmain" onClick={() => editable && startEdit(it)} style={editable ? { cursor: "pointer" } : undefined}>
+                  <div className="l">{it.label} <span className="dt">· {it.date}</span></div>
+                  <div className="p">{it.plan}</div>
+                </div>
+              </React.Fragment>
+            )}
           </div>
         ))}
+        {editable && (
+          editingId === "new" ? (
+            <div className="drow acc-dim">
+              <DateForm draft={draft} onChange={setDraft} onSave={save} onCancel={cancel} />
+            </div>
+          ) : (
+            <div className="drow acc-dim dadd" onClick={startAdd}>
+              <div className="dmain"><div className="l">+ Add an important date</div></div>
+            </div>
+          )
+        )}
       </div>
     </div>
   );
@@ -776,6 +845,7 @@ function App() {
   const [portfolio, setPortfolio] = useState(D.portfolio);
   const [tasks, setTasks] = useState({ bizTasks: D.bizTasks, personalTasks: D.personalTasks });
   const [week, setWeek] = useState(D.week);
+  const [dates, setDates] = useState(D.importantDates);
   const [liveParts, setLiveParts] = useState([]);   // which cards are showing real data
   const [notice, setNotice] = useState(null);
   const source = liveParts.length ? "live" : "sample";
@@ -887,22 +957,72 @@ function App() {
     return { ok: true };
   }, []);
 
-  const load = React.useCallback(async () => {
-    const [p, t, c] = await Promise.all([loadPortfolio(), loadTasks(), loadCalendar()]);
+  const loadDates = React.useCallback(async () => {
+    let r;
+    try {
+      r = await fetch("/api/dates");
+    } catch {
+      return { text: "No backend reachable. Showing sample data." };
+    }
 
-    if (p.locked || t.locked || c.locked) { setGate("locked"); return; }
+    if (r.status === 401) return { locked: true };
+    if (r.status === 404) return { text: "No backend running. Showing sample data." };
+    if (!r.ok) {
+      let msg = "Couldn't read important dates.";
+      try { const j = await r.json(); if (j.message) msg = j.message; } catch {}
+      return { text: `${msg} (status ${r.status}) Showing sample dates.` };
+    }
+
+    let data;
+    try {
+      data = await r.json();
+    } catch {
+      return { text: "The server replied with something that wasn't data. Showing sample dates." };
+    }
+    if (!data || !Array.isArray(data.dates)) {
+      return { text: "The dates data came back in an unexpected shape. Showing sample dates." };
+    }
+
+    setDates(data.dates);
+    return { ok: true };
+  }, []);
+
+  const load = React.useCallback(async () => {
+    const [p, t, c, dt] = await Promise.all([loadPortfolio(), loadTasks(), loadCalendar(), loadDates()]);
+
+    if (p.locked || t.locked || c.locked || dt.locked) { setGate("locked"); return; }
     setGate("open");
 
     const live = [];
     if (p.ok) live.push("portfolio");
     if (t.ok) live.push("tasks");
     if (c.ok) live.push("calendar");
+    if (dt.ok) live.push("dates");
     setLiveParts(live);
 
     // Prefer whichever call actually failed over a generic message; if all
-    // three succeeded there's nothing to tell Boz about.
-    setNotice((!p.ok && p) || (!t.ok && t) || (!c.ok && c) || null);
-  }, [loadPortfolio, loadTasks, loadCalendar]);
+    // four succeeded there's nothing to tell Boz about.
+    setNotice((!p.ok && p) || (!t.ok && t) || (!c.ok && c) || (!dt.ok && dt) || null);
+  }, [loadPortfolio, loadTasks, loadCalendar, loadDates]);
+
+  async function saveDate(entry) {
+    const method = entry.id ? "PATCH" : "POST";
+    await fetch("/api/dates", {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(entry),
+    });
+    await loadDates();
+  }
+
+  async function deleteDate(id) {
+    await fetch("/api/dates", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    await loadDates();
+  }
 
   useEffect(() => { load(); }, [load]);
 
@@ -943,7 +1063,7 @@ function App() {
           <Rings d={D.health} />
           <Habits d={D.habits} />
           <TaskList label="Personal Tasks" accent="teal" items={tasks.personalTasks} />
-          <ImportantDates d={D.importantDates} />
+          <ImportantDates d={dates} editable={liveParts.includes("dates")} onSave={saveDate} onDelete={deleteDate} />
           <Banner quote={D.quotes[quoteIdx]} goals={D.weeklyGoals} />
         </div>
 
