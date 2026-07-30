@@ -48,7 +48,7 @@ module.exports = requireAuth(async (req, res) => {
 
     const listRes = await tasksApi.tasklists.list({ maxResults: 20 });
     const lists = listRes.data.items || [];
-    const bizList = lists.find(l => l.title.trim().toLowerCase() === 'business');
+    const bizList = lists.find(l => l.title.trim().toLowerCase() === 'work');
     const personalList = lists.find(l => l.title.trim().toLowerCase() === 'personal');
 
     const [bizTasks, personalTasks] = await Promise.all([
