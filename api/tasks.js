@@ -1,6 +1,6 @@
 const { google } = require('googleapis');
-const { authClient } = require('../_lib/google');
-const { requireAuth } = require('../_lib/guard');
+const { authClient } = require('./_lib/google');
+const { requireAuth } = require('./_lib/guard');
 
 /**
  * Buckets a due date the way the dashboard's task rows expect: a short label,
