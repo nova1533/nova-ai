@@ -224,10 +224,6 @@ body {
 .task.done .box { background: var(--acc); border-color: var(--acc); color: var(--bg); }
 .task .tt { font-size: 13px; color: var(--text); flex: 1; }
 .task.done .tt { color: var(--text-dim); text-decoration: line-through; }
-.task .pri { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.pri-high { background: var(--red); box-shadow: 0 0 calc(8px*var(--gm)) var(--red); }
-.pri-med  { background: var(--orange); }
-.pri-low  { background: var(--teal); }
 .task .due { font-size: 10px; color: var(--text-dim); width: 48px; text-align: right; flex-shrink: 0; letter-spacing: .04em; }
 
 /* ===== Real estate ===== */
@@ -364,10 +360,10 @@ const DASH = {
   },
 
   bizTasks: [
-    { id: "b1", title: "Call title co. — Glenhaven closing", due: "Today", pri: "high", done: false },
-    { id: "b2", title: "Review JV agreement w/ partner",     due: "Today", pri: "med",  done: false },
-    { id: "b3", title: "Send comps to buyer list",           due: "Tue",   pri: "low",  done: false },
-    { id: "b4", title: "Follow up — Muzzy St buyer",         due: "Wed",   pri: "med",  done: true  },
+    { id: "b1", title: "Call title co. — Glenhaven closing", due: "Today", done: false },
+    { id: "b2", title: "Review JV agreement w/ partner",     due: "Today", done: false },
+    { id: "b3", title: "Send comps to buyer list",           due: "Tue",   done: false },
+    { id: "b4", title: "Follow up — Muzzy St buyer",         due: "Wed",   done: true  },
   ],
 
   /* Computed in pass 2 from the deal-by-deal rows, at Boz's
@@ -418,10 +414,10 @@ const DASH = {
   ],
 
   personalTasks: [
-    { id: "p1", title: "Order anniversary gift", due: "Today",  pri: "high", done: false },
-    { id: "p2", title: "Book flights — trip",    due: "Mon",    pri: "low",  done: false },
-    { id: "p3", title: "Schedule dentist",       due: "—",      pri: "low",  done: false },
-    { id: "p4", title: "Renew passport",         due: "Aug 10", pri: "med",  done: false },
+    { id: "p1", title: "Order anniversary gift", due: "Today",  done: false },
+    { id: "p2", title: "Book flights — trip",    due: "Mon",    done: false },
+    { id: "p3", title: "Schedule dentist",       due: "—",      done: false },
+    { id: "p4", title: "Renew passport",         due: "Aug 10", done: false },
   ],
 
   importantDates: [
@@ -556,16 +552,30 @@ function Portfolio({ d }) {
 /* ─────────────── Task list ─────────────── */
 function TaskList({ label, accent, items }) {
   const [done, setDone] = useState(() => Object.fromEntries(items.map(t => [t.id, t.done])));
+  useEffect(() => {
+    setDone(Object.fromEntries(items.map(t => [t.id, t.done])));
+  }, [items]);
   const open = items.filter(t => !done[t.id]).length;
+
+  function toggle(t) {
+    const next = !done[t.id];
+    setDone(s => ({ ...s, [t.id]: next }));
+    if (next && t.listId) {
+      fetch("/api/tasks/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ listId: t.listId, taskId: t.id }),
+      }).catch(() => {});
+    }
+  }
+
   return (
     <div className={"card acc-" + accent}>
       <CardHead label={label} accent={accent} right={<span className="num head-note">{open} OPEN</span>} />
       <div className="tasks">
         {items.map(t => (
-          <div className={"task" + (done[t.id] ? " done" : "")} key={t.id}
-               onClick={() => setDone(s => ({ ...s, [t.id]: !s[t.id] }))}>
+          <div className={"task" + (done[t.id] ? " done" : "")} key={t.id} onClick={() => toggle(t)}>
             <div className="box">{ICON.check({ width: 12, height: 12 })}</div>
-            <span className={"pri pri-" + t.pri} />
             <span className="tt">{t.title}</span>
             <span className="due">{t.due}</span>
           </div>
@@ -759,43 +769,33 @@ function App() {
   // "checking" until we know whether the backend is there and we're allowed in.
   const [gate, setGate] = useState("checking");
   const [portfolio, setPortfolio] = useState(D.portfolio);
-  const [source, setSource] = useState("sample");   // sample | live
+  const [tasks, setTasks] = useState({ bizTasks: D.bizTasks, personalTasks: D.personalTasks });
+  const [liveParts, setLiveParts] = useState([]);   // which cards are showing real data
   const [notice, setNotice] = useState(null);
+  const source = liveParts.length ? "live" : "sample";
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", skin);
     localStorage.setItem("boz-dash-skin", skin);
   }, [skin]);
 
-  const load = React.useCallback(async () => {
+  const loadPortfolio = React.useCallback(async () => {
     let r;
     try {
       r = await fetch("/api/portfolio");
     } catch {
-      // No backend at all — running the file locally. Show the shell on sample data.
-      setGate("open");
-      setNotice({ text: "No backend reachable. Showing sample data." });
-      return;
+      return { text: "No backend reachable. Showing sample data." };
     }
 
-    if (r.status === 401) { setGate("locked"); return; }
-    setGate("open");
-
-    if (r.status === 404) {
-      // Served by a plain static server (local preview) — the functions aren't running.
-      setNotice({ text: "No backend running. Showing sample data." });
-      return;
-    }
-
+    if (r.status === 401) return { locked: true };
+    if (r.status === 404) return { text: "No backend running. Showing sample data." };
     if (r.status === 428) {
-      setNotice({ text: "Google isn't connected yet, so the portfolio below is sample data.", action: "Connect Google", href: "/api/auth/google" });
-      return;
+      return { text: "Google isn't connected yet, so the portfolio and tasks below are sample data.", action: "Connect Google", href: "/api/auth/google" };
     }
     if (!r.ok) {
       let msg = "Couldn't read the deal tracker.";
       try { const j = await r.json(); if (j.message) msg = j.message; } catch {}
-      setNotice({ text: `${msg} (status ${r.status}) Showing sample data.` });
-      return;
+      return { text: `${msg} (status ${r.status}) Showing sample data.` };
     }
 
     // A malformed or intercepted response must not fail quietly — without this,
@@ -805,18 +805,64 @@ function App() {
     try {
       data = await r.json();
     } catch {
-      setNotice({ text: "The server replied with something that wasn't data. Showing sample data." });
-      return;
+      return { text: "The server replied with something that wasn't data. Showing sample data." };
     }
     if (!data || !Array.isArray(data.kpis) || !Array.isArray(data.properties)) {
-      setNotice({ text: "The portfolio data came back in an unexpected shape. Showing sample data." });
-      return;
+      return { text: "The portfolio data came back in an unexpected shape. Showing sample data." };
     }
 
     setPortfolio({ kpis: data.kpis, properties: data.properties });
-    setSource("live");
-    setNotice(null);
+    return { ok: true };
   }, []);
+
+  const loadTasks = React.useCallback(async () => {
+    let r;
+    try {
+      r = await fetch("/api/tasks");
+    } catch {
+      return { text: "No backend reachable. Showing sample data." };
+    }
+
+    if (r.status === 401) return { locked: true };
+    if (r.status === 404) return { text: "No backend running. Showing sample data." };
+    if (r.status === 428) {
+      return { text: "Google isn't connected yet, so the portfolio and tasks below are sample data.", action: "Connect Google", href: "/api/auth/google" };
+    }
+    if (!r.ok) {
+      let msg = "Couldn't read your task lists.";
+      try { const j = await r.json(); if (j.message) msg = j.message; } catch {}
+      return { text: `${msg} (status ${r.status}) Showing sample tasks.` };
+    }
+
+    let data;
+    try {
+      data = await r.json();
+    } catch {
+      return { text: "The server replied with something that wasn't data. Showing sample tasks." };
+    }
+    if (!data || !Array.isArray(data.bizTasks) || !Array.isArray(data.personalTasks)) {
+      return { text: "The tasks data came back in an unexpected shape. Showing sample tasks." };
+    }
+
+    setTasks({ bizTasks: data.bizTasks, personalTasks: data.personalTasks });
+    return { ok: true };
+  }, []);
+
+  const load = React.useCallback(async () => {
+    const [p, t] = await Promise.all([loadPortfolio(), loadTasks()]);
+
+    if (p.locked || t.locked) { setGate("locked"); return; }
+    setGate("open");
+
+    const live = [];
+    if (p.ok) live.push("portfolio");
+    if (t.ok) live.push("tasks");
+    setLiveParts(live);
+
+    // Prefer whichever call actually failed over a generic message; if both
+    // succeeded there's nothing to tell Boz about.
+    setNotice((!p.ok && p) || (!t.ok && t) || null);
+  }, [loadPortfolio, loadTasks]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -848,7 +894,7 @@ function App() {
           <SectionRule>Business</SectionRule>
           <Hero d={D} />
           <Wholesaling d={D.wholesaling} />
-          <TaskList label="Business Tasks" accent="orange" items={D.bizTasks} />
+          <TaskList label="Business Tasks" accent="orange" items={tasks.bizTasks} />
           <Portfolio d={portfolio} />
 
           <WeekStrip d={D.week} />
@@ -856,15 +902,17 @@ function App() {
           <SectionRule>Personal</SectionRule>
           <Rings d={D.health} />
           <Habits d={D.habits} />
-          <TaskList label="Personal Tasks" accent="teal" items={D.personalTasks} />
+          <TaskList label="Personal Tasks" accent="teal" items={tasks.personalTasks} />
           <ImportantDates d={D.importantDates} />
           <Banner quote={D.quotes[quoteIdx]} goals={D.weeklyGoals} />
         </div>
 
         <div className="sample-note">
-          {source === "live"
-            ? "Portfolio is live from the deal tracker — everything else is still sample data"
-            : "Sample data — no live sources connected yet"}
+          {liveParts.length === 0
+            ? "Sample data — no live sources connected yet"
+            : liveParts.length === 2
+              ? "Portfolio and tasks are live — everything else is still sample data"
+              : `${liveParts[0] === "portfolio" ? "Portfolio" : "Tasks"} is live — everything else is still sample data`}
         </div>
       </div>
     </div>
