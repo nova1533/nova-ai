@@ -216,7 +216,7 @@ body {
 .habit .streak .sl { font-size: 8px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); }
 
 /* ===== Task lists ===== */
-.tasks { display: flex; flex-direction: column; gap: 2px; }
+.tasks { display: flex; flex-direction: column; gap: 2px; max-height: 280px; overflow-y: auto; }
 .task { display: flex; align-items: center; gap: 11px; padding: 11px 4px; border-bottom: 1px solid var(--border); cursor: pointer; }
 .task:last-child { border-bottom: none; }
 .task .box { width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--text-dim); flex-shrink: 0;
@@ -419,10 +419,9 @@ const DASH = {
   },
 
   habits: [
-    { id: "breath", name: "Breathwork",     note: "Microcosmic Orbit · 20 min, deep", streak: 14, done: true,  accent: "teal"   },
-    { id: "steps",  name: "Steps",          note: "8,240 logged today",               streak: 6,  done: true,  accent: "orange" },
-    { id: "gym",    name: "Gym Session",    note: "Last: Thu, Jul 23",                streak: 3,  done: false, accent: "orange" },
-    { id: "ifs",    name: "IFS Journaling", note: "Parts check-in",                   streak: 9,  done: true,  accent: "teal"   },
+    { id: "breath", name: "Breathwork",  note: "Done today",           streak: 14, done: true,  accent: "teal",   kind: "check" },
+    { id: "steps",  name: "Steps",       note: "8,240 logged today",   streak: 6,  done: false, accent: "orange", kind: "count", value: 8240, goal: 10000 },
+    { id: "gym",    name: "Gym Session", note: "Last: Thu, Jul 23",    streak: 3,  done: false, accent: "orange", kind: "check" },
   ],
 
   personalTasks: [
@@ -660,26 +659,58 @@ function Rings({ d }) {
 }
 
 /* ─────────────── Habits ─────────────── */
-function Habits({ d }) {
-  const [state, setState] = useState(() => Object.fromEntries(d.map(h => [h.id, h.done])));
+function Habits({ d, editable, onToggle, onLogSteps }) {
+  const [editingId, setEditingId] = useState(null);
+  const [draft, setDraft] = useState("");
+  const doneCount = d.filter(h => h.done).length;
+
+  function openEdit(h) {
+    setEditingId(h.id);
+    setDraft(h.value != null ? String(h.value) : "");
+  }
+  function cancel() { setEditingId(null); setDraft(""); }
+  async function save(h) {
+    const n = Number(draft);
+    if (!Number.isFinite(n) || n < 0) return;
+    await onLogSteps(h.id, n);
+    cancel();
+  }
+
   return (
     <div className="card col2 acc-teal">
       <CardHead label="Daily Practices" accent="teal" right={
-        <span className="num head-note">{Object.values(state).filter(Boolean).length}/{d.length} DONE</span>} />
+        <span className="num head-note">{doneCount}/{d.length} DONE</span>} />
       <div className="habits">
         {d.map(h => {
-          const done = state[h.id];
-          const streak = h.streak + (done && !h.done ? 1 : (!done && h.done ? -1 : 0));
+          if (editingId === h.id) {
+            return (
+              <div className={"habit acc-" + h.accent} key={h.id}>
+                <div className="dform" style={{ flex: 1 }}>
+                  <input className="di" type="number" min="0" inputMode="numeric" placeholder="Steps today"
+                         value={draft} onChange={e => setDraft(e.target.value)} autoFocus />
+                  <div className="dactions">
+                    <button className="dbtn dbtn-save" onClick={() => save(h)}>Save</button>
+                    <button className="dbtn" onClick={cancel}>Cancel</button>
+                  </div>
+                </div>
+              </div>
+            );
+          }
           return (
-            <div className={"habit acc-" + h.accent + (done ? " done" : "")} key={h.id}
-                 onClick={() => setState(s => ({ ...s, [h.id]: !s[h.id] }))}>
+            <div className={"habit acc-" + h.accent + (h.done ? " done" : "")} key={h.id}
+                 style={editable ? { cursor: "pointer" } : undefined}
+                 onClick={() => {
+                   if (!editable) return;
+                   if (h.kind === "count") openEdit(h);
+                   else onToggle(h.id, !h.done);
+                 }}>
               <div className="check">{ICON.check()}</div>
               <div style={{ minWidth: 0 }}>
                 <div className="nm">{h.name}</div>
                 <div className="nt">{h.note}</div>
               </div>
               <div className="streak">
-                <div className="num s">{streak}</div>
+                <div className="num s">{h.streak}</div>
                 <div className="sl">day streak</div>
               </div>
             </div>
@@ -846,6 +877,7 @@ function App() {
   const [tasks, setTasks] = useState({ bizTasks: D.bizTasks, personalTasks: D.personalTasks });
   const [week, setWeek] = useState(D.week);
   const [dates, setDates] = useState(D.importantDates);
+  const [habits, setHabits] = useState(D.habits);
   const [liveParts, setLiveParts] = useState([]);   // which cards are showing real data
   const [notice, setNotice] = useState(null);
   const source = liveParts.length ? "live" : "sample";
@@ -987,10 +1019,40 @@ function App() {
     return { ok: true };
   }, []);
 
-  const load = React.useCallback(async () => {
-    const [p, t, c, dt] = await Promise.all([loadPortfolio(), loadTasks(), loadCalendar(), loadDates()]);
+  const loadHabits = React.useCallback(async () => {
+    let r;
+    try {
+      r = await fetch("/api/habits");
+    } catch {
+      return { text: "No backend reachable. Showing sample data." };
+    }
 
-    if (p.locked || t.locked || c.locked || dt.locked) { setGate("locked"); return; }
+    if (r.status === 401) return { locked: true };
+    if (r.status === 404) return { text: "No backend running. Showing sample data." };
+    if (!r.ok) {
+      let msg = "Couldn't read habit streaks.";
+      try { const j = await r.json(); if (j.message) msg = j.message; } catch {}
+      return { text: `${msg} (status ${r.status}) Showing sample habits.` };
+    }
+
+    let data;
+    try {
+      data = await r.json();
+    } catch {
+      return { text: "The server replied with something that wasn't data. Showing sample habits." };
+    }
+    if (!data || !Array.isArray(data.habits)) {
+      return { text: "The habits data came back in an unexpected shape. Showing sample habits." };
+    }
+
+    setHabits(data.habits);
+    return { ok: true };
+  }, []);
+
+  const load = React.useCallback(async () => {
+    const [p, t, c, dt, h] = await Promise.all([loadPortfolio(), loadTasks(), loadCalendar(), loadDates(), loadHabits()]);
+
+    if (p.locked || t.locked || c.locked || dt.locked || h.locked) { setGate("locked"); return; }
     setGate("open");
 
     const live = [];
@@ -998,12 +1060,13 @@ function App() {
     if (t.ok) live.push("tasks");
     if (c.ok) live.push("calendar");
     if (dt.ok) live.push("dates");
+    if (h.ok) live.push("habits");
     setLiveParts(live);
 
     // Prefer whichever call actually failed over a generic message; if all
-    // four succeeded there's nothing to tell Boz about.
-    setNotice((!p.ok && p) || (!t.ok && t) || (!c.ok && c) || (!dt.ok && dt) || null);
-  }, [loadPortfolio, loadTasks, loadCalendar, loadDates]);
+    // five succeeded there's nothing to tell Boz about.
+    setNotice((!p.ok && p) || (!t.ok && t) || (!c.ok && c) || (!dt.ok && dt) || (!h.ok && h) || null);
+  }, [loadPortfolio, loadTasks, loadCalendar, loadDates, loadHabits]);
 
   async function saveDate(entry) {
     const method = entry.id ? "PATCH" : "POST";
@@ -1022,6 +1085,24 @@ function App() {
       body: JSON.stringify({ id }),
     });
     await loadDates();
+  }
+
+  async function toggleHabit(habitId, done) {
+    await fetch("/api/habits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ habitId, done }),
+    });
+    await loadHabits();
+  }
+
+  async function logSteps(habitId, value) {
+    await fetch("/api/habits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ habitId, value }),
+    });
+    await loadHabits();
   }
 
   useEffect(() => { load(); }, [load]);
@@ -1061,7 +1142,7 @@ function App() {
 
           <SectionRule>Personal</SectionRule>
           <Rings d={D.health} />
-          <Habits d={D.habits} />
+          <Habits d={habits} editable={liveParts.includes("habits")} onToggle={toggleHabit} onLogSteps={logSteps} />
           <TaskList label="Personal Tasks" accent="teal" items={tasks.personalTasks} />
           <ImportantDates d={dates} editable={liveParts.includes("dates")} onSave={saveDate} onDelete={deleteDate} />
           <Banner quote={D.quotes[quoteIdx]} goals={D.weeklyGoals} />
