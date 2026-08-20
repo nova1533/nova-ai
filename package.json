@@ -21,6 +21,7 @@
     "elevenlabs": "^1.59.0",
     "express": "^5.2.1",
     "multer": "^2.1.1",
-    "googleapis": "^144.0.0"
+    "googleapis": "^144.0.0",
+    "jsforce": "^3.6.4"
   }
 }

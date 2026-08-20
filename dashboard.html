@@ -190,6 +190,22 @@ body {
 .manual-tag { font-size: 8.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim);
   border: 1px dashed var(--border-strong); border-radius: 999px; padding: 3px 8px; }
 
+/* ===== Wholesaling (Salesforce) ===== */
+.ws-kpis { display: flex; flex-direction: column; margin-top: 4px; }
+.ws-kpi { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--border); }
+.ws-kpi:last-child { border-bottom: none; }
+.ws-kpi .l { font-size: 11px; color: var(--text); font-weight: 600; }
+.ws-kpi .s { font-size: 9.5px; color: var(--text-dim); margin-top: 2px; }
+.ws-kpi .v { font-size: 17px; color: var(--acc); flex-shrink: 0; }
+.ws-closings-label { font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); margin: 14px 0 4px; }
+.ws-closings { display: flex; flex-direction: column; }
+.ws-closing { display: flex; align-items: baseline; gap: 8px; padding: 7px 2px; border-bottom: 1px solid var(--border); font-size: 11px; }
+.ws-closing:last-child { border-bottom: none; }
+.ws-closing .date { color: var(--text-dim); flex-shrink: 0; width: 40px; }
+.ws-closing .addr { color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-closing .profit { color: var(--acc); font-weight: 600; flex-shrink: 0; }
+.ws-empty { font-size: 11px; color: var(--text-dim); padding: 6px 2px; }
+
 /* ===== Portfolio KPI strip ===== */
 .pf-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
 .pf-kpi { background: var(--card-2); border: 1px solid var(--border); border-left: 2px solid var(--acc); border-radius: 12px; padding: 14px 16px; }
@@ -358,16 +374,16 @@ const DASH = {
     { label: "To Cashflow Goal",    value: "9%",     accent: "gold",   delta: "of $25K target" },
   ],
 
-  /* Wholesaling has no live source yet — Salesforce is deferred.
-     These are set by hand and stored in Supabase from pass 4 on. */
   wholesaling: {
-    pipeline: "$2.4M",
-    mtd: 128400, goal: 175000,
-    trend: "+18%",
-    stages: [
-      { label: "Under Contract", count: 4, accent: "teal" },
-      { label: "Negotiating",    count: 7, accent: "orange" },
-      { label: "Leads",          count: 23, accent: "dim" },
+    kpis: [
+      { label: "Closed This Year",    value: "$688.7K", sub: "53 deals", accent: "teal"   },
+      { label: "Closed Last Month",   value: "$94.4K",  sub: "7 deals",  accent: "gold"   },
+      { label: "Projected This Month",value: "$103.8K", sub: "9 deals",  accent: "orange" },
+    ],
+    closings: [
+      { id: "s1", address: "301 W Silver Meadow Dr", date: "Aug 20", days: 0, profit: "$7,000" },
+      { id: "s2", address: "300 NW 90th St",         date: "Aug 28", days: 8, profit: "$15,000" },
+      { id: "s3", address: "9229 Apple Dr",          date: "Aug 28", days: 8, profit: "$10,000" },
     ],
   },
 
@@ -493,19 +509,28 @@ function Hero({ d }) {
 
 /* ─────────────── Wholesaling ─────────────── */
 function Wholesaling({ d }) {
-  const pct = Math.round((d.mtd / d.goal) * 100);
   return (
     <div className="card acc-orange">
-      <CardHead label="Wholesaling" accent="orange" right={<span className="manual-tag">set by hand</span>} />
-      <div className="num kpi-big acc-orange glow-text">{d.pipeline}</div>
-      <div className="kpi-sub">Pipeline Potential</div>
-      <div className="bar acc-orange"><span style={{ width: pct + "%" }} /></div>
-      <div className="bar-meta"><span>MTD Revenue</span><span><b>${(d.mtd / 1000).toFixed(1)}K</b> / ${(d.goal / 1000)}K</span></div>
-      <div className="stages">
-        {d.stages.map((s, i) => (
-          <div className={"stage-pill acc-" + s.accent} key={i}>
-            <div className="num c" style={{ color: s.accent === "dim" ? "var(--text-mid)" : "var(--acc)" }}>{s.count}</div>
-            <div className="n">{s.label}</div>
+      <CardHead label="TAG Homes" accent="orange" right={<span className="manual-tag">salesforce</span>} />
+      <div className="ws-kpis">
+        {d.kpis.map((k, i) => (
+          <div className={"ws-kpi acc-" + k.accent} key={i}>
+            <div>
+              <div className="l">{k.label}</div>
+              <div className="s">{k.sub}</div>
+            </div>
+            <div className="num v">{k.value}</div>
+          </div>
+        ))}
+      </div>
+      <div className="ws-closings-label">Next Closings</div>
+      <div className="ws-closings">
+        {d.closings.length === 0 && <div className="ws-empty">Nothing scheduled</div>}
+        {d.closings.map(c => (
+          <div className="ws-closing" key={c.id}>
+            <span className="date">{c.date}</span>
+            <span className="addr">{c.address}</span>
+            <span className="profit">{c.profit}</span>
           </div>
         ))}
       </div>
@@ -878,6 +903,7 @@ function App() {
   const [week, setWeek] = useState(D.week);
   const [dates, setDates] = useState(D.importantDates);
   const [habits, setHabits] = useState(D.habits);
+  const [wholesaling, setWholesaling] = useState(D.wholesaling);
   const [liveParts, setLiveParts] = useState([]);   // which cards are showing real data
   const [notice, setNotice] = useState(null);
   const source = liveParts.length ? "live" : "sample";
@@ -1049,10 +1075,43 @@ function App() {
     return { ok: true };
   }, []);
 
-  const load = React.useCallback(async () => {
-    const [p, t, c, dt, h] = await Promise.all([loadPortfolio(), loadTasks(), loadCalendar(), loadDates(), loadHabits()]);
+  const loadWholesaling = React.useCallback(async () => {
+    let r;
+    try {
+      r = await fetch("/api/wholesaling");
+    } catch {
+      return { text: "No backend reachable. Showing sample data." };
+    }
 
-    if (p.locked || t.locked || c.locked || dt.locked || h.locked) { setGate("locked"); return; }
+    if (r.status === 401) return { locked: true };
+    if (r.status === 404) return { text: "No backend running. Showing sample data." };
+    if (r.status === 428) {
+      return { text: "Salesforce isn't connected yet, so Wholesaling below is sample data.", action: "Connect Salesforce", href: "/api/auth/salesforce" };
+    }
+    if (!r.ok) {
+      let msg = "Couldn't read Salesforce.";
+      try { const j = await r.json(); if (j.message) msg = j.message; } catch {}
+      return { text: `${msg} (status ${r.status}) Showing sample wholesaling data.` };
+    }
+
+    let data;
+    try {
+      data = await r.json();
+    } catch {
+      return { text: "The server replied with something that wasn't data. Showing sample wholesaling data." };
+    }
+    if (!data || !Array.isArray(data.kpis) || !Array.isArray(data.closings)) {
+      return { text: "The wholesaling data came back in an unexpected shape. Showing sample data." };
+    }
+
+    setWholesaling({ kpis: data.kpis, closings: data.closings });
+    return { ok: true };
+  }, []);
+
+  const load = React.useCallback(async () => {
+    const [p, t, c, dt, h, w] = await Promise.all([loadPortfolio(), loadTasks(), loadCalendar(), loadDates(), loadHabits(), loadWholesaling()]);
+
+    if (p.locked || t.locked || c.locked || dt.locked || h.locked || w.locked) { setGate("locked"); return; }
     setGate("open");
 
     const live = [];
@@ -1061,12 +1120,13 @@ function App() {
     if (c.ok) live.push("calendar");
     if (dt.ok) live.push("dates");
     if (h.ok) live.push("habits");
+    if (w.ok) live.push("wholesaling");
     setLiveParts(live);
 
     // Prefer whichever call actually failed over a generic message; if all
-    // five succeeded there's nothing to tell Boz about.
-    setNotice((!p.ok && p) || (!t.ok && t) || (!c.ok && c) || (!dt.ok && dt) || (!h.ok && h) || null);
-  }, [loadPortfolio, loadTasks, loadCalendar, loadDates, loadHabits]);
+    // six succeeded there's nothing to tell Boz about.
+    setNotice((!p.ok && p) || (!t.ok && t) || (!c.ok && c) || (!dt.ok && dt) || (!h.ok && h) || (!w.ok && w) || null);
+  }, [loadPortfolio, loadTasks, loadCalendar, loadDates, loadHabits, loadWholesaling]);
 
   async function saveDate(entry) {
     const method = entry.id ? "PATCH" : "POST";
@@ -1134,7 +1194,7 @@ function App() {
         <div className="grid">
           <SectionRule>Business</SectionRule>
           <Hero d={D} />
-          <Wholesaling d={D.wholesaling} />
+          <Wholesaling d={wholesaling} />
           <TaskList label="Business Tasks" accent="orange" items={tasks.bizTasks} />
           <Portfolio d={portfolio} />
 

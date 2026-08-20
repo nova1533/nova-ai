@@ -2,5 +2,8 @@
   "framework": null,
   "buildCommand": null,
   "outputDirectory": ".",
-  "cleanUrls": true
+  "cleanUrls": true,
+  "crons": [
+    { "path": "/api/cron/keepalive", "schedule": "0 13 * * *" }
+  ]
 }
