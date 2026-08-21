@@ -1,4 +1,5 @@
 const { authClient } = require('./_lib/salesforce');
+const { supabase } = require('./_lib/google');
 const { requireAuth } = require('./_lib/guard');
 
 /**
@@ -12,7 +13,23 @@ const { requireAuth } = require('./_lib/guard');
  * settlement statement — so the same field serves both purposes, and
  * Left_Main__Path__c/Left_Main__Dispo_Status__c = 'Closed/Won' is what
  * tells you which meaning currently applies.
+ *
+ * Also doubles as the daily Supabase keepalive ping (see the CRON_SECRET
+ * branch below) — folded in here rather than its own route to stay under
+ * Vercel Hobby's 12-serverless-function cap. Unrelated to Salesforce, but
+ * cheap and harmless to share a file with.
  */
+
+async function keepaliveSupabase(req, res) {
+  try {
+    const db = supabase();
+    const { error } = await db.from('important_dates').select('id').limit(1);
+    if (error) throw error;
+    res.status(200).json({ ok: true, pinged: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: 'keepalive_failed', message: err.message });
+  }
+}
 
 const MONTH_DAY = { month: 'short', day: 'numeric', timeZone: 'UTC' };
 
@@ -28,7 +45,7 @@ function dealWord(n) {
   return n === 1 ? 'deal' : 'deals';
 }
 
-module.exports = requireAuth(async (req, res) => {
+async function wholesalingHandler(req, res) {
   try {
     const conn = await authClient();
 
@@ -79,4 +96,15 @@ module.exports = requireAuth(async (req, res) => {
     }
     res.status(500).json({ error: 'wholesaling_failed', message: err.message });
   }
-});
+}
+
+const authedHandler = requireAuth(wholesalingHandler);
+
+module.exports = async (req, res) => {
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = req.headers.authorization;
+  if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
+    return keepaliveSupabase(req, res);
+  }
+  return authedHandler(req, res);
+};

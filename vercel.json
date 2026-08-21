@@ -4,6 +4,6 @@
   "outputDirectory": ".",
   "cleanUrls": true,
   "crons": [
-    { "path": "/api/cron/keepalive", "schedule": "0 13 * * *" }
+    { "path": "/api/wholesaling", "schedule": "0 13 * * *" }
   ]
 }
