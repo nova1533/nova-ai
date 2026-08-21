@@ -159,11 +159,6 @@ body {
 .hero .name { font-size: 84px; line-height: .9; letter-spacing: .02em; margin: 10px 0 12px;
   color: var(--text); text-shadow: 0 0 calc(34px*var(--gm)) color-mix(in srgb, var(--teal), transparent 55%); }
 .hero .intent { font-size: 17px; color: var(--text-mid); max-width: 30ch; line-height: 1.4; }
-.hero .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: auto; padding-top: 22px; }
-.stat { border-left: 2px solid color-mix(in srgb, var(--acc), transparent 40%); padding-left: 12px; }
-.stat .v { font-size: 26px; color: var(--text); }
-.stat .l { font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--text-dim); margin-top: 3px; }
-.stat .d { font-size: 11px; color: var(--acc); margin-top: 5px; font-weight: 600; }
 
 /* ===== Rings ===== */
 .rings-wrap { display: flex; flex-direction: column; align-items: center; }
@@ -368,12 +363,6 @@ const DASH = {
   greeting: "GOOD MORNING",
   intention: "Build the machine. Stay in the body.",
 
-  heroStats: [
-    { label: "My Monthly Cashflow", value: "$2,235", accent: "teal",   delta: "5 performing" },
-    { label: "My Equity",           value: "$186.5K", accent: "orange", delta: "8 properties" },
-    { label: "To Cashflow Goal",    value: "9%",     accent: "gold",   delta: "of $25K target" },
-  ],
-
   wholesaling: {
     kpis: [
       { label: "Closed This Year",    value: "$688.7K", sub: "53 deals", accent: "teal"   },
@@ -494,15 +483,6 @@ function Hero({ d }) {
       <div className="label eyebrow">{d.greeting}</div>
       <div className="num name acc-teal">{d.user}.</div>
       <div className="intent">{d.intention}</div>
-      <div className="stats">
-        {d.heroStats.map((s, i) => (
-          <div className={"stat acc-" + s.accent} key={i}>
-            <div className="num v">{s.value}</div>
-            <div className="l">{s.label}</div>
-            <div className="d">{s.delta}</div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
